@@ -1030,10 +1030,19 @@
       };
 
       const broadcastDisabled = () => {
+        const disabled = Array.from(readDisabled());
+        // Notify root-config tab via BroadcastChannel for immediate cross-tab sync.
+        // Works on both localhost and production — essential for status.html ↔ home tab.
+        try {
+          const bc = new BroadcastChannel("mfe-disabled-sync");
+          bc.postMessage({ type: "mfe-toggle", disabled });
+          bc.close();
+        } catch {
+          // BroadcastChannel not supported — storage event is the fallback
+        }
+        // Bridge iframes are localhost-only (direct postMessage to MFE dev servers)
         if (!statusIsLocal) return;
         ensureBridgeFrames();
-        const disabled = Array.from(readDisabled());
-        // Notify bridge iframes (individual MFE ports)
         bridgeFrames.forEach(({ iframe, origin }) => {
           if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage(
@@ -1042,16 +1051,6 @@
             );
           }
         });
-        // Notify root-config tab via BroadcastChannel for immediate cross-tab sync.
-        // The storage event alone is unreliable (doesn't fire in the same tab,
-        // and may not fire if the serialized value is identical).
-        try {
-          const bc = new BroadcastChannel("mfe-disabled-sync");
-          bc.postMessage({ type: "mfe-toggle", disabled });
-          bc.close();
-        } catch {
-          // BroadcastChannel not supported — storage event is the fallback
-        }
       };
 
       const statusIsProd = !statusIsLocal;

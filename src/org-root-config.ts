@@ -843,6 +843,31 @@ const bootstrap = () => {
   persistThemeMode();
   let applications = allApplications;
   const localDisabledApps = getDisabledApps();
+
+  // Cross-tab sync: listen for mfe-disabled changes from other tabs (e.g. status.html)
+  // so that toggling a module in the status page triggers an immediate reload.
+  // Must be registered on ALL environments (localhost + production).
+  window.addEventListener("storage", (event) => {
+    if (event.key === "mfe-disabled" || event.key === "mfe-disabled-mode") {
+      safeReload();
+    }
+  });
+  try {
+    const bc = new BroadcastChannel("mfe-disabled-sync");
+    bc.onmessage = (event) => {
+      const data = event.data;
+      if (
+        data &&
+        typeof data === "object" &&
+        (data.type === "mfe-toggle" || data.type === "mfe-disabled-mode")
+      ) {
+        safeReload();
+      }
+    };
+  } catch {
+    // BroadcastChannel not supported — storage event is the fallback
+  }
+
   if (!isLocalhost) {
     getServerDisabledApps().then((serverDisabled) => {
       const serverDisabledApps = (serverDisabled || []).filter(
@@ -932,34 +957,8 @@ const bootstrap = () => {
     });
   };
 
-  // Always listen for mfe-disabled changes from other tabs (e.g. status.html)
-  // so that toggling a module in the status page triggers an immediate reload.
-  if (isLocalhost) {
-    window.addEventListener("storage", (event) => {
-      if (event.key === "mfe-disabled" || event.key === "mfe-disabled-mode") {
-        safeReload();
-      }
-    });
-
-    // BroadcastChannel provides same-origin cross-tab communication that is
-    // more reliable than the storage event (which doesn't fire when the value
-    // is set to the same string, or in some edge-case browser quirks).
-    try {
-      const bc = new BroadcastChannel("mfe-disabled-sync");
-      bc.onmessage = (event) => {
-        const data = event.data;
-        if (
-          data &&
-          typeof data === "object" &&
-          (data.type === "mfe-toggle" || data.type === "mfe-disabled-mode")
-        ) {
-          safeReload();
-        }
-      };
-    } catch {
-      // BroadcastChannel not supported — storage event is the fallback
-    }
-  }
+  // Cross-tab sync listeners are now registered before the isLocalhost branch
+  // (at the top of bootstrap) so they work on all environments.
 
   if (cached && isLocalhost) {
     const refreshDelay = Math.max(AVAILABILITY_CACHE_TTL, 15000);
