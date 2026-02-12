@@ -431,19 +431,17 @@ export const initRootConfigShellUi = () => {
     appElements.forEach((el) => {
       const app = el.getAttribute("data-app");
       const isDisabled = app ? disabledSet.has(app) : false;
+      if (app && isDisabled) {
+        setAppState(app, "maintenance", "Maintenance");
+        return;
+      }
       const isPinnedVisible = Boolean(app && ALWAYS_VISIBLE_APPS.has(app));
       const isAvailable = isPinnedVisible
         ? true
         : !isLocal || !app || !availableApps
         ? true
         : availableApps.has(app);
-        
-      if (app && isDisabled) {
-        setAppState(app, "maintenance", "Maintenance");
-        return;
-      }
       if (!isAvailable) {
-        // Keep unavailable apps hidden only when they are not explicitly disabled.
         el.style.display = "none";
         return;
       }

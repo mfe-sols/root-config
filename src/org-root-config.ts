@@ -106,8 +106,47 @@ const AUTH_REQUIRED_PREFIXES = [
 ];
 const ALWAYS_ON_APPS = new Set<string>();
 
+type DisabledMode = "hide" | "placeholder";
+type DisabledModeConfig =
+  | DisabledMode
+  | {
+      default?: DisabledMode;
+      apps?: Record<string, DisabledMode>;
+    };
+type ToggleState = {
+  disabled: string[];
+  disabledMode?: { default: DisabledMode; apps: Record<string, DisabledMode> };
+};
+
 const sanitizeDisabledApps = (names: Iterable<string>) =>
   new Set(Array.from(names).filter((name) => !ALWAYS_ON_APPS.has(name)));
+
+const normalizeDisabledModeConfig = (
+  value: unknown
+): ToggleState["disabledMode"] | undefined => {
+  if (value === "hide" || value === "placeholder") {
+    return { default: value, apps: {} };
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const input = value as { default?: unknown; apps?: Record<string, unknown> };
+  const apps: Record<string, DisabledMode> = {};
+  if (input.apps && typeof input.apps === "object" && !Array.isArray(input.apps)) {
+    Object.entries(input.apps)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([name, mode]) => {
+        if (mode === "hide" || mode === "placeholder") {
+          apps[name] = mode;
+        }
+      });
+  }
+  const defaultMode =
+    input.default === "hide" || input.default === "placeholder"
+      ? input.default
+      : "hide";
+  return { default: defaultMode, apps };
+};
 
 const getDisabledApps = () => {
   try {
@@ -127,35 +166,48 @@ const getDisabledApps = () => {
   }
 };
 
-const getServerDisabledApps = () => {
+const getServerToggleState = (): Promise<ToggleState> => {
   return fetch(toggleUrl, { cache: "no-store" })
     .then((res) => (res.ok ? res.json() : { disabled: [] }))
     .then((data) => {
-      if (!data || typeof data !== "object" || Array.isArray(data)) return [];
-      return Array.isArray(data.disabled)
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return { disabled: [] };
+      }
+      const disabled = Array.isArray(data.disabled)
         ? Array.from(
             sanitizeDisabledApps(
               data.disabled.filter((name: unknown): name is string => typeof name === "string")
             )
           )
         : [];
+      const disabledMode = normalizeDisabledModeConfig(
+        (data as { disabledMode?: DisabledModeConfig }).disabledMode
+      );
+      return disabledMode ? { disabled, disabledMode } : { disabled };
     })
-    .catch(() => []);
+    .catch(() => ({ disabled: [] }));
 };
 
 const emitDisabledApps = (
   serverDisabledApps: Set<string>,
-  localDisabledApps: Set<string>
+  localDisabledApps: Set<string>,
+  serverDisabledMode?: ToggleState["disabledMode"]
 ) => {
   const safeServerDisabledApps = sanitizeDisabledApps(serverDisabledApps);
   const safeLocalDisabledApps = sanitizeDisabledApps(localDisabledApps);
   window.__mfeServerDisabled = Array.from(safeServerDisabledApps);
+  window.__mfeDisabledMode = serverDisabledMode;
   const disabledApps = sanitizeDisabledApps([
     ...Array.from(safeServerDisabledApps),
     ...Array.from(safeLocalDisabledApps),
   ]);
   window.dispatchEvent(
-    new CustomEvent("mfe-toggle", { detail: { disabled: Array.from(disabledApps) } })
+    new CustomEvent("mfe-toggle", {
+      detail: {
+        disabled: Array.from(disabledApps),
+        disabledMode: serverDisabledMode,
+      },
+    })
   );
 };
 
@@ -186,10 +238,11 @@ const readAvailabilityCache = () => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const { timestamp, available, disabled } = parsed as {
+    const { timestamp, available, disabled, disabledMode } = parsed as {
       timestamp?: number;
       available?: string[];
       disabled?: string[];
+      disabledMode?: ToggleState["disabledMode"];
     };
     if (typeof timestamp !== "number" || Date.now() - timestamp > AVAILABILITY_CACHE_TTL) {
       return null;
@@ -204,13 +257,18 @@ const readAvailabilityCache = () => {
     return {
       available: new Set(safeAvailable),
       disabled: new Set(safeDisabled),
+      disabledMode: normalizeDisabledModeConfig(disabledMode),
     };
   } catch {
     return null;
   }
 };
 
-const writeAvailabilityCache = (available: Set<string>, disabled: Set<string>) => {
+const writeAvailabilityCache = (
+  available: Set<string>,
+  disabled: Set<string>,
+  disabledMode?: ToggleState["disabledMode"]
+) => {
   try {
     window.sessionStorage.setItem(
       AVAILABILITY_CACHE_KEY,
@@ -218,6 +276,7 @@ const writeAvailabilityCache = (available: Set<string>, disabled: Set<string>) =
         timestamp: Date.now(),
         available: Array.from(available),
         disabled: Array.from(disabled),
+        disabledMode,
       })
     );
   } catch {
@@ -856,15 +915,19 @@ const bootstrap = () => {
   }
 
   if (!isLocalhost) {
-    getServerDisabledApps().then((serverDisabled) => {
-      const serverDisabledApps = (serverDisabled || []).filter(
+    getServerToggleState().then((serverToggle) => {
+      const serverDisabledApps = (serverToggle.disabled || []).filter(
         (name): name is string => typeof name === "string"
       );
       const disabledApps = sanitizeDisabledApps([
         ...Array.from(localDisabledApps),
         ...serverDisabledApps,
       ]);
-      emitDisabledApps(new Set(serverDisabledApps), localDisabledApps);
+      emitDisabledApps(
+        new Set(serverDisabledApps),
+        localDisabledApps,
+        serverToggle.disabledMode
+      );
       applications = allApplications.filter(
         (app) => ALWAYS_ON_APPS.has(app.name) || !disabledApps.has(app.name)
       );
@@ -882,7 +945,7 @@ const bootstrap = () => {
     const localDisabledApps = getDisabledApps();
     currentAvailableApps = cached.available;
     emitAvailability(cached.available);
-    emitDisabledApps(cached.disabled, localDisabledApps);
+    emitDisabledApps(cached.disabled, localDisabledApps, cached.disabledMode);
     applications = allApplications.filter(
       (app) =>
         ALWAYS_ON_APPS.has(app.name) ||
@@ -904,21 +967,21 @@ const bootstrap = () => {
           return isUrlAvailable(url).then((ok) => [name, ok] as const);
         })
       ),
-      getServerDisabledApps(),
-    ]).then(([availability, serverDisabled]) => {
+      getServerToggleState(),
+    ]).then(([availability, serverToggle]) => {
       const localDisabledApps = getDisabledApps();
       const availableApps = new Set(availability.filter(([, ok]) => ok).map(([name]) => name));
       const serverDisabledApps = new Set<string>(
-        (serverDisabled || []).filter((name): name is string => typeof name === "string")
+        (serverToggle.disabled || []).filter((name): name is string => typeof name === "string")
       );
       const disabledApps = sanitizeDisabledApps([
         ...Array.from(serverDisabledApps),
         ...Array.from(localDisabledApps),
       ]);
-      writeAvailabilityCache(availableApps, serverDisabledApps);
+      writeAvailabilityCache(availableApps, serverDisabledApps, serverToggle.disabledMode);
       currentAvailableApps = availableApps;
       emitAvailability(availableApps);
-      emitDisabledApps(serverDisabledApps, localDisabledApps);
+      emitDisabledApps(serverDisabledApps, localDisabledApps, serverToggle.disabledMode);
       if (!cached) {
         applications = allApplications.filter(
           (app) =>
@@ -936,6 +999,8 @@ const bootstrap = () => {
         cached &&
         (cached.available.size !== availableApps.size ||
           cached.disabled.size !== serverDisabledApps.size ||
+          JSON.stringify(cached.disabledMode || null) !==
+            JSON.stringify(serverToggle.disabledMode || null) ||
           Array.from(cached.available).some((name) => !availableApps.has(name)) ||
           Array.from(cached.disabled).some((name) => !serverDisabledApps.has(name)))
       ) {

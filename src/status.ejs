@@ -962,39 +962,34 @@
         window.localStorage.setItem(disabledKey, JSON.stringify(Array.from(set)));
       };
 
-      /** Sync the disabled set to the server so other browsers/devices pick it up. */
-      const syncDisabledToServer = (disabledSet) => {
-        fetch(toggleUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ disabled: Array.from(disabledSet) }),
-        }).catch((err) => {
-          console.warn("[status] Failed to sync toggle to server:", err);
-        });
-      };
-
       const normalizeDisabledMode = (value) => (value === "placeholder" ? "placeholder" : "hide");
+      const normalizeDisabledModeConfig = (value) => {
+        if (value === "hide" || value === "placeholder") {
+          return { default: value, apps: {} };
+        }
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          return { default: "hide", apps: {} };
+        }
+        const apps = {};
+        if (value.apps && typeof value.apps === "object") {
+          Object.entries(value.apps)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .forEach(([name, mode]) => {
+              apps[name] = normalizeDisabledMode(mode);
+            });
+        }
+        return {
+          default: normalizeDisabledMode(value.default),
+          apps,
+        };
+      };
 
       const readDisabledModeConfig = () => {
         try {
           const raw = window.localStorage.getItem(disabledModeKey);
           if (!raw) return { default: "hide", apps: {} };
           const parsed = JSON.parse(raw);
-          if (parsed === "hide" || parsed === "placeholder") {
-            return { default: parsed, apps: {} };
-          }
-          if (!parsed || typeof parsed !== "object") {
-            return { default: "hide", apps: {} };
-          }
-          const apps = {};
-          if (parsed.apps && typeof parsed.apps === "object") {
-            Object.entries(parsed.apps).forEach(([name, mode]) => {
-              const normalized = normalizeDisabledMode(mode);
-              apps[name] = normalized;
-            });
-          }
-          const def = normalizeDisabledMode(parsed.default);
-          return { default: def, apps };
+          return normalizeDisabledModeConfig(parsed);
         } catch {
           return { default: "hide", apps: {} };
         }
@@ -1002,10 +997,34 @@
 
       const writeDisabledModeConfig = (config) => {
         try {
-          window.localStorage.setItem(disabledModeKey, JSON.stringify(config));
+          const normalized = normalizeDisabledModeConfig(config);
+          window.localStorage.setItem(disabledModeKey, JSON.stringify(normalized));
         } catch {
           // ignore
         }
+      };
+
+      const applyServerDisabledModeConfig = (value) => {
+        if (typeof value === "undefined") return;
+        const normalized = normalizeDisabledModeConfig(value);
+        const current = readDisabledModeConfig();
+        if (JSON.stringify(current) === JSON.stringify(normalized)) return;
+        writeDisabledModeConfig(normalized);
+      };
+
+      /** Sync disabled list + display mode to server so all devices read same behavior. */
+      const syncToggleToServer = (disabledSet, modeConfig = readDisabledModeConfig()) => {
+        const normalizedMode = normalizeDisabledModeConfig(modeConfig);
+        fetch(toggleUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disabled: Array.from(disabledSet),
+            disabledMode: normalizedMode,
+          }),
+        }).catch((err) => {
+          console.warn("[status] Failed to sync toggle to server:", err);
+        });
       };
 
       const resolveDisabledMode = (name) => {
@@ -1575,6 +1594,7 @@
                 next.apps[mod.name] = nextMode;
               }
               writeDisabledModeConfig(next);
+              syncToggleToServer(new Set([...readDisabled(), ...serverDisabled]), next);
               // Notify root-config tab of display mode change
               try {
                 const bc = new BroadcastChannel("mfe-disabled-sync");
@@ -1595,7 +1615,7 @@
                 disabledSet.add(mod.name);
               }
               writeDisabled(disabledSet);
-              syncDisabledToServer(disabledSet);
+              syncToggleToServer(disabledSet);
               broadcastDisabled();
               runCheck();
             });
@@ -1729,6 +1749,11 @@
               const res = await fetch(toggleUrl, { cache: "no-store" });
               if (res.ok) {
                 const data = await res.json();
+                if (data && typeof data === "object" && !Array.isArray(data)) {
+                  if (Object.prototype.hasOwnProperty.call(data, "disabledMode")) {
+                    applyServerDisabledModeConfig(data.disabledMode);
+                  }
+                }
                 if (Array.isArray(data.disabled)) {
                   return new Set(data.disabled);
                 }
