@@ -1587,10 +1587,8 @@
             modeRow.appendChild(modeLabel);
             modeRow.appendChild(modeSelect);
             toggle.addEventListener("click", () => {
-              const disabledSet = readDisabled();
-              if (serverDisabled.has(mod.name)) {
-                return;
-              }
+              // Merge local + server disabled into one set
+              const disabledSet = new Set([...readDisabled(), ...serverDisabled]);
               if (disabledSet.has(mod.name)) {
                 disabledSet.delete(mod.name);
               } else {
@@ -1612,12 +1610,10 @@
           }
           mod.__state = isDisabled ? "disabled" : mod.__state || "pending";
           entry.urlEl.textContent = mod.url;
-          entry.toggle.textContent = isServerDisabled
-            ? t("status.cardDisabledByServer")
-            : isDisabled
+          entry.toggle.textContent = isDisabled
             ? t("status.cardEnable")
             : t("status.cardDisable");
-          entry.toggle.disabled = isServerDisabled;
+          entry.toggle.disabled = false;
           if (entry.modeLabel) {
             entry.modeLabel.textContent = t("status.disabledModeLabel");
           }
