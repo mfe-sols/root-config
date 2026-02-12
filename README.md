@@ -92,18 +92,20 @@ Root-config bundles 2 shared libs (không external):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `IMPORTMAP_PROD_URL` | `/importmap.prod.json` | URL to production import map |
-| `MFE_TOGGLE_URL` | `/mfe-toggle.json` | URL to MFE toggle config |
+| `MFE_TOGGLE_URL` | `/api/mfe-toggle` | URL to MFE toggle API |
 | `AUTH_BASE_URL` | (empty) | Auth API base URL |
 
 ## Module Toggle
 
-Disable/enable modules at runtime via `public/mfe-toggle.json`:
+Disable/enable modules at runtime via `POST /api/mfe-toggle`:
 
 ```json
 {
   "disabled": ["@org/playground-react"]
 }
 ```
+
+Legacy clients that still call `/mfe-toggle.json` are redirected to `/api/mfe-toggle` on Vercel.
 
 ## Deploy
 
