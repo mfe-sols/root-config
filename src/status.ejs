@@ -877,7 +877,8 @@
         { name: "@org/playground-svelte", url: "http://localhost:9011/org-playground-svelte.js" },
         { name: "@org/simple-vanilla", url: "http://localhost:9009/org-simple-vanilla.js" },
       ];
-      const toggleUrl = "/api/mfe-toggle";
+      const prodToggleUrl = "https://minimal-api-dev-t4.vercel.app/mfe-toggle.json";
+      const toggleUrl = statusIsLocal ? "/api/mfe-toggle" : prodToggleUrl;
       const importmapUrl = "<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>";
 
       const grid = document.getElementById("grid");
@@ -964,7 +965,7 @@
 
       /** Sync the disabled set to the server so other browsers/devices pick it up. */
       const syncDisabledToServer = (disabledSet) => {
-        fetch("/api/mfe-toggle", {
+        fetch(toggleUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ disabled: Array.from(disabledSet) }),
