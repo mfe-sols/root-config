@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@org/auth-angular": "https://mfe-auth-angular.vercel.app/main.js",
     "@org/header-react": "https://mfe-header-react.vercel.app/org-header-react.js",
     "@org/catalog": "https://cdn.yourdomain.com/org-catalog.js",
     "@org/profile-vue": "https://cdn.yourdomain.com/profile-vue.js",
