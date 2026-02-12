@@ -877,8 +877,7 @@
         { name: "@org/playground-svelte", url: "http://localhost:9011/org-playground-svelte.js" },
         { name: "@org/simple-vanilla", url: "http://localhost:9009/org-simple-vanilla.js" },
       ];
-      const prodToggleUrl = "https://minimal-api-dev-t4.vercel.app/api/mfe-toggle";
-      const toggleUrl = statusIsLocal ? "/api/mfe-toggle" : prodToggleUrl;
+      const toggleUrl = "/api/mfe-toggle";
       const importmapUrl = "<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>";
 
       const grid = document.getElementById("grid");

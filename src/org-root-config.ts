@@ -78,9 +78,8 @@ const umdLoads = new Map<string, Promise<void>>();
 const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   || window.location.hostname.endsWith(".devtunnels.ms");
 
-/** Toggle endpoint: local uses same-origin API, non-local uses the shared API URL. */
-const PROD_TOGGLE_URL = "https://minimal-api-dev-t4.vercel.app/api/mfe-toggle";
-const toggleUrl = isLocalhost ? "/api/mfe-toggle" : PROD_TOGGLE_URL;
+/** Toggle endpoint: always use same-origin API route. */
+const toggleUrl = "/api/mfe-toggle";
 const localAppUrls: Record<string, string> = {
   "@org/header-react": "http://localhost:9012/org-header-react.js",
   "@org/catalog": "http://localhost:9001/org-catalog.js",

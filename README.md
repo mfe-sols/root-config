@@ -105,7 +105,7 @@ Disable/enable modules at runtime via `POST /api/mfe-toggle`:
 }
 ```
 
-Legacy clients that still call `/mfe-toggle.json` are redirected to `/api/mfe-toggle` on Vercel.
+Legacy clients that still call `/mfe-toggle.json` are internally rewritten to `/api/mfe-toggle` on Vercel.
 
 ## Deploy
 

@@ -2,14 +2,8 @@
   "buildCommand": "pnpm run build:webpack",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
-  "redirects": [
-    {
-      "source": "/mfe-toggle.json",
-      "destination": "/api/mfe-toggle",
-      "permanent": false
-    }
-  ],
   "rewrites": [
+    { "source": "/mfe-toggle.json", "destination": "/api/mfe-toggle" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -56,10 +50,6 @@
     },
     {
       "source": "/importmap.prod.json",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
-    },
-    {
-      "source": "/mfe-toggle.json",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     }
   ]
