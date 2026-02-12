@@ -1,7 +1,7 @@
 {
   "buildCommand": "pnpm run build:webpack",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "rewrites": [
     { "source": "/mfe-toggle.json", "destination": "/api/mfe-toggle" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
