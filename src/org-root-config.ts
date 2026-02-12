@@ -78,11 +78,11 @@ const umdLoads = new Map<string, Promise<void>>();
 const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   || window.location.hostname.endsWith(".devtunnels.ms");
 
-/** Validate that toggleUrl is a safe relative path or same-origin URL. */
+/** Toggle endpoint: use server API for cross-browser sync, fallback to static file. */
 const rawToggleUrl =
-  (globalThis as any)?.process?.env?.MFE_TOGGLE_URL || "/mfe-toggle.json";
+  (globalThis as any)?.process?.env?.MFE_TOGGLE_URL || "/api/mfe-toggle";
 const toggleUrl = (() => {
-  if (typeof rawToggleUrl !== "string") return "/mfe-toggle.json";
+  if (typeof rawToggleUrl !== "string") return "/api/mfe-toggle";
   // Allow relative paths
   if (rawToggleUrl.startsWith("/")) return rawToggleUrl;
   // Allow same-origin absolute URLs only
@@ -91,7 +91,7 @@ const toggleUrl = (() => {
     if (parsed.origin === window.location.origin) return rawToggleUrl;
   } catch { /* invalid URL */ }
   console.warn("[root-config] Ignoring untrusted MFE_TOGGLE_URL:", rawToggleUrl);
-  return "/mfe-toggle.json";
+  return "/api/mfe-toggle";
 })();
 const localAppUrls: Record<string, string> = {
   "@org/header-react": "http://localhost:9012/org-header-react.js",
