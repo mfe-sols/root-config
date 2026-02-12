@@ -82,8 +82,8 @@
   <script src="/vendor/system.min.js" defer></script>
   <script src="/vendor/import-map-overrides.js" defer></script>
   <script src="/vendor/import-map-injector.js" defer></script>
-  <link rel="stylesheet" href="/ui-kit.css" />
-  <link rel="stylesheet" href="/root-config.css?v=<%= rootConfigCssVersion || '' %>" />
+  <link rel="stylesheet" href="/ui-kit.css?v=<%= deployAssetVersion || uiKitCssVersion || '' %>" />
+  <link rel="stylesheet" href="/root-config.css?v=<%= deployAssetVersion || rootConfigCssVersion || '' %>" />
 
 </head>
 <body>

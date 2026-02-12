@@ -12,6 +12,7 @@ require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 module.exports = (webpackConfigEnv, argv) => {
   const orgName = "org";
   const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
+  const uiKitCssPath = path.resolve(__dirname, "public/ui-kit.css");
   const rootConfigCssVersion = (() => {
     try {
       const stat = fs.statSync(rootConfigCssPath);
@@ -20,6 +21,18 @@ module.exports = (webpackConfigEnv, argv) => {
       return String(Date.now());
     }
   })();
+  const uiKitCssVersion = (() => {
+    try {
+      const stat = fs.statSync(uiKitCssPath);
+      return String(stat.mtimeMs);
+    } catch {
+      return String(Date.now());
+    }
+  })();
+  const deployAssetVersion =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_DEPLOYMENT_ID ||
+    String(Date.now());
 
   const defaultConfig = singleSpaDefaults({
     orgName,
@@ -96,11 +109,13 @@ module.exports = (webpackConfigEnv, argv) => {
       new HtmlWebpackPlugin({
         inject: false,
         template: "src/index.ejs",
-        watchFiles: [rootConfigCssPath],
+        watchFiles: [rootConfigCssPath, uiKitCssPath],
         templateParameters: {
           isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
           orgName,
           rootConfigCssVersion,
+          uiKitCssVersion,
+          deployAssetVersion,
         },
       }),
       new HtmlWebpackPlugin({
@@ -111,6 +126,8 @@ module.exports = (webpackConfigEnv, argv) => {
           isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
           orgName,
           rootConfigCssVersion,
+          uiKitCssVersion,
+          deployAssetVersion,
         },
       }),
       // Copy public/ assets into dist/ for production builds
