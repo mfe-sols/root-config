@@ -67,6 +67,17 @@ type DisabledModeConfig =
       apps?: Record<string, DisabledMode>;
     };
 
+const DEFAULT_DISABLED_MODE_BY_APP: Partial<Record<string, DisabledMode>> = {
+  "@org/header-react": "placeholder",
+};
+
+const getFallbackDisabledMode = (app: string, defaultMode?: DisabledMode): DisabledMode => {
+  const appDefault = DEFAULT_DISABLED_MODE_BY_APP[app];
+  if (appDefault === "hide" || appDefault === "placeholder") return appDefault;
+  if (defaultMode === "hide" || defaultMode === "placeholder") return defaultMode;
+  return "hide";
+};
+
 const normalizeDisabledModeConfig = (config?: DisabledModeConfig | null) => {
   if (!config) return { default: undefined, apps: {} as Record<string, DisabledMode> };
   if (config === "hide" || config === "placeholder") {
@@ -159,7 +170,8 @@ const applyIncomingDisabledModeForApp = (app: unknown, mode: unknown) => {
     default: current.default ?? "hide",
     apps: { ...current.apps },
   };
-  if (mode === next.default) {
+  const fallbackMode = getFallbackDisabledMode(app, next.default);
+  if (mode === fallbackMode) {
     delete next.apps[app];
   } else {
     next.apps[app] = mode;
@@ -173,9 +185,7 @@ const resolveDisabledMode = (app: string, el: HTMLElement): DisabledMode => {
   const config = readDisabledModeConfig();
   const appMode = config.apps?.[app];
   if (appMode === "hide" || appMode === "placeholder") return appMode;
-  const defaultMode = config.default;
-  if (defaultMode === "hide" || defaultMode === "placeholder") return defaultMode;
-  return "hide";
+  return getFallbackDisabledMode(app, config.default);
 };
 
 const ensureBadge = (el: HTMLElement, className: string) => {

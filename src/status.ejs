@@ -918,6 +918,15 @@
       };
       const disabledKey = "mfe-disabled";
       const disabledModeKey = "mfe-disabled-mode";
+      const DEFAULT_DISABLED_MODE_BY_APP = {
+        "@org/header-react": "placeholder",
+      };
+      const getFallbackDisabledMode = (name, defaultMode) => {
+        const appDefault = DEFAULT_DISABLED_MODE_BY_APP[name];
+        if (appDefault === "hide" || appDefault === "placeholder") return appDefault;
+        if (defaultMode === "hide" || defaultMode === "placeholder") return defaultMode;
+        return "hide";
+      };
       const bridgeTargets = [
         { name: "@org/header-react", origin: "http://localhost:9012", url: "http://localhost:9012/?mfe-bridge=1" },
         { name: "@org/catalog", origin: "http://localhost:9001", url: "http://localhost:9001/?mfe-bridge=1" },
@@ -1029,7 +1038,9 @@
 
       const resolveDisabledMode = (name) => {
         const config = readDisabledModeConfig();
-        return config.apps?.[name] || config.default || "hide";
+        const appMode = config.apps?.[name];
+        if (appMode === "hide" || appMode === "placeholder") return appMode;
+        return getFallbackDisabledMode(name, config.default);
       };
 
       let bridgeFramesRequested = false;
@@ -1588,7 +1599,8 @@
                 default: config.default || "hide",
                 apps: { ...(config.apps || {}) },
               };
-              if (nextMode === next.default) {
+              const fallbackMode = getFallbackDisabledMode(mod.name, next.default);
+              if (nextMode === fallbackMode) {
                 delete next.apps[mod.name];
               } else {
                 next.apps[mod.name] = nextMode;
