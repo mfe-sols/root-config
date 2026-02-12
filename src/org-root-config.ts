@@ -197,6 +197,13 @@ const emitDisabledApps = (
   const safeLocalDisabledApps = sanitizeDisabledApps(localDisabledApps);
   window.__mfeServerDisabled = Array.from(safeServerDisabledApps);
   window.__mfeDisabledMode = serverDisabledMode;
+  if (serverDisabledMode) {
+    try {
+      window.localStorage.setItem("mfe-disabled-mode", JSON.stringify(serverDisabledMode));
+    } catch {
+      // ignore storage errors
+    }
+  }
   const disabledApps = sanitizeDisabledApps([
     ...Array.from(safeServerDisabledApps),
     ...Array.from(safeLocalDisabledApps),
@@ -426,6 +433,20 @@ const createUnavailableApp = (name: string) => ({
   unmount: () => Promise.resolve(),
 });
 
+/**
+ * Keep disabled apps in the layout tree (so maintenance placeholders can render),
+ * but short-circuit their runtime loading to no-op lifecycles.
+ */
+const runtimeDisabledApps = new Set<string>();
+const setRuntimeDisabledApps = (disabled: Set<string>) => {
+  runtimeDisabledApps.clear();
+  disabled.forEach((name) => {
+    if (!ALWAYS_ON_APPS.has(name)) {
+      runtimeDisabledApps.add(name);
+    }
+  });
+};
+
 
 const watchServerToggle = () => {
   let last = "";
@@ -561,6 +582,9 @@ const allApplications = constructApplications({
   loadApp({ name }) {
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark(`mfe:${name}:load:start`);
+    }
+    if (runtimeDisabledApps.has(name)) {
+      return Promise.resolve(createUnavailableApp(name)).finally(() => finalizeLoadMetrics(name));
     }
     if (name in umdApps) {
       const app = umdApps[name as keyof typeof umdApps];
@@ -923,14 +947,13 @@ const bootstrap = () => {
         ...Array.from(localDisabledApps),
         ...serverDisabledApps,
       ]);
+      setRuntimeDisabledApps(disabledApps);
       emitDisabledApps(
         new Set(serverDisabledApps),
         localDisabledApps,
         serverToggle.disabledMode
       );
-      applications = allApplications.filter(
-        (app) => ALWAYS_ON_APPS.has(app.name) || !disabledApps.has(app.name)
-      );
+      applications = allApplications;
       const layoutEngine = constructLayoutEngine({ routes, applications });
       applications.forEach((app) => registerApplication(app));
       layoutEngine.activate();
@@ -943,15 +966,18 @@ const bootstrap = () => {
   const cached = readAvailabilityCache();
   if (cached) {
     const localDisabledApps = getDisabledApps();
+    const disabledApps = sanitizeDisabledApps([
+      ...Array.from(cached.disabled),
+      ...Array.from(localDisabledApps),
+    ]);
+    setRuntimeDisabledApps(disabledApps);
     currentAvailableApps = cached.available;
     emitAvailability(cached.available);
     emitDisabledApps(cached.disabled, localDisabledApps, cached.disabledMode);
     applications = allApplications.filter(
       (app) =>
         ALWAYS_ON_APPS.has(app.name) ||
-        (cached.available.has(app.name) &&
-          !cached.disabled.has(app.name) &&
-          !localDisabledApps.has(app.name))
+        cached.available.has(app.name)
     );
     const layoutEngine = constructLayoutEngine({ routes, applications });
     applications.forEach((app) => registerApplication(app));
@@ -978,6 +1004,7 @@ const bootstrap = () => {
         ...Array.from(serverDisabledApps),
         ...Array.from(localDisabledApps),
       ]);
+      setRuntimeDisabledApps(disabledApps);
       writeAvailabilityCache(availableApps, serverDisabledApps, serverToggle.disabledMode);
       currentAvailableApps = availableApps;
       emitAvailability(availableApps);
@@ -986,7 +1013,7 @@ const bootstrap = () => {
         applications = allApplications.filter(
           (app) =>
             ALWAYS_ON_APPS.has(app.name) ||
-            (availableApps.has(app.name) && !disabledApps.has(app.name))
+            availableApps.has(app.name)
         );
         const layoutEngine = constructLayoutEngine({ routes, applications });
         applications.forEach((app) => registerApplication(app));
