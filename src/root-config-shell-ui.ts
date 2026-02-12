@@ -437,13 +437,16 @@ export const initRootConfigShellUi = () => {
         : !isLocal || !app || !availableApps
         ? true
         : availableApps.has(app);
+      if (app && isDisabled) {
+        setAppState(app, "maintenance", "Maintenance");
+        return;
+      }
       if (!isAvailable) {
+        // Keep unavailable apps hidden only when they are not explicitly disabled.
         el.style.display = "none";
         return;
       }
-      if (app && isDisabled) {
-        setAppState(app, "maintenance", "Maintenance");
-      } else if (app && el.getAttribute("data-app-state") === "maintenance") {
+      if (app && el.getAttribute("data-app-state") === "maintenance") {
         setAppState(app, null);
       } else {
         el.style.display = "";
