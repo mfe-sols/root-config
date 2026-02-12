@@ -437,6 +437,7 @@ export const initRootConfigShellUi = () => {
         : !isLocal || !app || !availableApps
         ? true
         : availableApps.has(app);
+        
       if (app && isDisabled) {
         setAppState(app, "maintenance", "Maintenance");
         return;
