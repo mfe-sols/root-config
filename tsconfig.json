@@ -1,0 +1,13 @@
+{
+  "extends": "ts-config-single-spa",
+  "files": ["src/org-root-config.ts"],
+  "compilerOptions": {
+    "declarationDir": "dist",
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "paths": {}
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test*"]
+}

@@ -1,0 +1,117 @@
+const { merge } = require("webpack-merge");
+const singleSpaDefaults = require("webpack-config-single-spa-ts");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const webpack = require("webpack");
+const path = require("path");
+const fs = require("fs");
+
+// Load .env from project root
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+
+module.exports = (webpackConfigEnv, argv) => {
+  const orgName = "org";
+  const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
+  const rootConfigCssVersion = (() => {
+    try {
+      const stat = fs.statSync(rootConfigCssPath);
+      return String(stat.mtimeMs);
+    } catch {
+      return String(Date.now());
+    }
+  })();
+
+  const defaultConfig = singleSpaDefaults({
+    orgName,
+    projectName: "root-config",
+    webpackConfigEnv,
+    argv,
+    disableHtmlGeneration: true,
+  });
+
+  defaultConfig.resolve = defaultConfig.resolve || {};
+
+  // Bundle @mfe-sols/* shared libs (not external)
+  const baseExternals = defaultConfig.externals;
+  const allowBundle = new Set(["@mfe-sols/i18n", "@mfe-sols/auth"]);
+  const customExternals = (context, request, callback) => {
+    if (allowBundle.has(request)) {
+      return callback();
+    }
+    if (typeof baseExternals === "function") {
+      return baseExternals(context, request, callback);
+    }
+    if (Array.isArray(baseExternals)) {
+      for (const ext of baseExternals) {
+        if (typeof ext === "function") {
+          let handled = false;
+          ext(context, request, (err, result) => {
+            if (err) return callback(err);
+            if (result !== undefined) {
+              handled = true;
+              return callback(null, result);
+            }
+          });
+          if (handled) return;
+        } else if (typeof ext === "object" && ext[request]) {
+          return callback(null, ext[request]);
+        }
+      }
+      return callback();
+    }
+    return callback();
+  };
+
+  // Remove ForkTsCheckerWebpackPlugin (type check separately via tsc --noEmit)
+  defaultConfig.plugins = (defaultConfig.plugins || []).filter(
+    (p) =>
+      p &&
+      p.constructor &&
+      p.constructor.name !== "ForkTsCheckerWebpackPlugin"
+  );
+
+  return merge(defaultConfig, {
+    externals: customExternals,
+    devServer: {
+      ...(defaultConfig.devServer || {}),
+      allowedHosts: "all",
+      headers: {
+        ...((defaultConfig.devServer && defaultConfig.devServer.headers) || {}),
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store",
+      },
+    },
+    plugins: [
+      new webpack.DefinePlugin({
+        "process.env.IMPORTMAP_PROD_URL": JSON.stringify(
+          process.env.IMPORTMAP_PROD_URL || ""
+        ),
+        "process.env.MFE_TOGGLE_URL": JSON.stringify(
+          process.env.MFE_TOGGLE_URL || ""
+        ),
+        "process.env.AUTH_BASE_URL": JSON.stringify(
+          process.env.AUTH_BASE_URL || ""
+        ),
+      }),
+      new HtmlWebpackPlugin({
+        inject: false,
+        template: "src/index.ejs",
+        watchFiles: [rootConfigCssPath],
+        templateParameters: {
+          isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
+          orgName,
+          rootConfigCssVersion,
+        },
+      }),
+      new HtmlWebpackPlugin({
+        inject: false,
+        filename: "status.html",
+        template: "src/status.ejs",
+        templateParameters: {
+          isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
+          orgName,
+          rootConfigCssVersion,
+        },
+      }),
+    ],
+  });
+};

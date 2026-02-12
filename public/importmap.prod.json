@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "@org/header-react": "https://cdn.yourdomain.com/org-header-react.js",
+    "@org/catalog": "https://cdn.yourdomain.com/org-catalog.js",
+    "@org/profile-vue": "https://cdn.yourdomain.com/profile-vue.js",
+    "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
+    "@org/checkout-angular": "https://cdn.yourdomain.com/checkout-angular/main.js",
+    "@org/playground-angular": "https://cdn.yourdomain.com/playground-angular/main.js",
+    "@org/playground-vue": "https://cdn.yourdomain.com/playground-vue.js",
+    "@org/playground-react": "https://cdn.yourdomain.com/org-playground.js",
+    "@org/playground-vanilla": "https://cdn.yourdomain.com/org-playground-vanilla.js",
+    "@org/playground-svelte": "https://cdn.yourdomain.com/org-playground-svelte.js",
+    "@org/simple-vanilla": "https://cdn.yourdomain.com/org-simple-vanilla.js"
+  }
+}

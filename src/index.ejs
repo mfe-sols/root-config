@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>System Platform</title>
+  <meta name="importmap-type" use-injector />
+  <!-- If you wish to turn off import-map-overrides for specific environments (prod), uncomment the line below -->
+  <!-- More info at https://github.com/single-spa/import-map-overrides/blob/main/docs/configuration.md#domain-list -->
+  <!-- <meta name="import-map-overrides-domains" content="denylist:prod.example.com" /> -->
+
+  <!-- Shared dependencies go into this import map -->
+  <script type="injector-importmap">
+    {
+      "imports": {
+        "single-spa": "/vendor/single-spa.min.js"
+      }
+    }
+  </script>
+  <link rel="preload" href="/vendor/single-spa.min.js" as="script">
+  <link rel="preload" href="/vendor/system.min.js" as="script">
+  <link rel="preload" href="/vendor/import-map-overrides.js" as="script">
+  <link rel="preload" href="/vendor/import-map-injector.js" as="script">
+  <link rel="preload" href="/vendor/zone.umd.js" as="script">
+
+  <!-- Add your organization's prod import map URL to this script's src  -->
+  <!-- <script type="injector-importmap" src="/importmap.json"></script> -->
+
+  <% if (isLocal) { %>
+  <script type="systemjs-importmap">
+    {
+      "imports": {
+        "@org/header-react": "//localhost:9012/org-header-react.js?v=<%= rootConfigCssVersion || '' %>",
+        "@org/catalog": "//localhost:9001/org-catalog.js",
+        "@org/profile-vue": "//localhost:9002/profile-vue.js",
+        "@org/playground-react": "//localhost:9007/org-playground.js",
+        "@org/checkout-angular": "//localhost:9003/main.js",
+        "@org/auth-angular": "//localhost:9010/main.js",
+        "@org/playground-vue": "//localhost:9006/playground-vue.js",
+        "@org/playground-angular": "//localhost:9005/main.js",
+        "@org/playground-svelte": "//localhost:9011/org-playground-svelte.js",
+        "@org/dashboard-vue": "//localhost:9004/dashboard-vue.js",
+        "@org/simple-vanilla": "//localhost:9009/org-simple-vanilla.js",
+        "zone.js": "/vendor/zone.umd.js"
+      }
+    }
+  </script>
+  <script type="injector-importmap">
+    {
+      "imports": {
+        "@org/root-config": "//localhost:9000/org-root-config.js",
+        "@org/header-react": "//localhost:9012/org-header-react.js?v=<%= rootConfigCssVersion || '' %>",
+        "@org/catalog": "//localhost:9001/org-catalog.js",
+        "@org/profile-vue": "//localhost:9002/profile-vue.js",
+        "@org/playground-react": "//localhost:9007/org-playground.js",
+        "@org/checkout-angular": "//localhost:9003/main.js",
+        "@org/auth-angular": "//localhost:9010/main.js",
+        "@org/playground-vue": "//localhost:9006/playground-vue.js",
+        "@org/playground-angular": "//localhost:9005/main.js",
+        "@org/playground-vanilla": "//localhost:9008/org-playground-vanilla.js",
+        "@org/playground-svelte": "//localhost:9011/org-playground-svelte.js",
+        "@org/dashboard-vue": "//localhost:9004/dashboard-vue.js",
+        "@org/simple-vanilla": "//localhost:9009/org-simple-vanilla.js"
+      }
+    }
+  </script>
+  <% } %>
+  <% if (!isLocal) { %>
+  <script type="systemjs-importmap" src="<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>"></script>
+  <% } %>
+  <script type="systemjs-importmap">
+    {
+      "imports": {
+        "@org/root-config": "/org-root-config.js"
+      }
+    }
+  </script>
+  <meta name="auth-base-url" content="<%= process.env.AUTH_BASE_URL || '' %>">
+
+  <script src="/vendor/zone.umd.js" defer></script>
+  <script src="/vendor/system.min.js" defer></script>
+  <script src="/vendor/import-map-overrides.js" defer></script>
+  <script src="/vendor/import-map-injector.js" defer></script>
+  <link rel="stylesheet" href="/ui-kit.css" />
+  <link rel="stylesheet" href="/root-config.css?v=<%= rootConfigCssVersion || '' %>" />
+
+</head>
+<body>
+  <noscript>
+    You need to enable JavaScript to run this app.
+  </noscript>
+  <button class="ds-theme-toggle" id="ds-theme-toggle" data-i18n="toggleTheme">Toggle theme</button>
+    <button
+    class="mfe-perf-fab"
+    id="mfe-perf-fab"
+    type="button"
+    aria-label="Toggle performance panel"
+    style="position: fixed; right: 16px; bottom: 112px; z-index: 10001;"
+  >
+    📊
+  </button>
+
+   <section class="mfe-perf-panel" id="mfe-perf-panel">
+    <div class="mfe-perf-header flex items-center justify-between gap-2">
+      <span class="ds-h6">Performance</span>
+      <button type="button" class="ds-btn ds-btn--ghost ds-btn--sm" id="mfe-perf-refresh">Refresh</button>
+    </div>
+    <div class="mfe-perf-list" id="mfe-perf-list">
+      <div class="mfe-perf-item">
+        <div>
+          <div>Waiting for metrics…</div>
+          <div class="mfe-perf-meta">No data yet</div>
+        </div>
+        <div class="mfe-perf-time">—</div>
+      </div>
+    </div>
+  </section>
+  <div class="ds-locale-toggle" id="ds-locale-toggle">
+    <button type="button" class="ds-locale-toggle__btn" data-locale="en">EN</button>
+    <button type="button" class="ds-locale-toggle__btn" data-locale="vi">VI</button>
+  </div>
+  <script>
+    (function () {
+      function importRootConfig() {
+        if (window.System && window.System.import) {
+          return window.System.import('@org/root-config');
+        }
+        return import('@org/root-config');
+      }
+      function start() {
+        if (window.importMapInjector && window.importMapInjector.initPromise) {
+          window.importMapInjector.initPromise.then(importRootConfig);
+        } else {
+          importRootConfig();
+        }
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start, { once: true });
+      } else {
+        start();
+      }
+    })();
+  </script>
+  <import-map-overrides-full show-when-local-storage="devtools" dev-libs></import-map-overrides-full>
+</body>
+</html>

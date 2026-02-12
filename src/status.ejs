@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en" data-is-local="<%= isLocal ? "true" : "false" %>">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orchestra Status</title>
+    <script>
+      (function () {
+        const AUTH_BASE = "<%= process.env.AUTH_BASE_URL || '' %>";
+        const loginUrl = new URL("/auth/login", window.location.origin);
+        loginUrl.searchParams.set("returnTo", "/status.html");
+        const redirectToLogin = () => {
+          window.location.replace(`${loginUrl.pathname}${loginUrl.search}`);
+        };
+        const hasLocalTokens = () => {
+          try {
+            const scopeKey = "mfe-auth-storage";
+            const stateKey = "mfe-auth-state";
+            const scope = localStorage.getItem(scopeKey) === "session" ? "session" : "local";
+            const storage = scope === "session" ? sessionStorage : localStorage;
+            const raw = storage.getItem(stateKey);
+            const state = raw ? JSON.parse(raw) : null;
+            return Boolean(state && state.tokens && state.tokens.accessToken);
+          } catch {
+            return false;
+          }
+        };
+        const checkCookieSession = () => {
+          if (!AUTH_BASE) return Promise.resolve(false);
+          const base = AUTH_BASE.replace(/\/+$/, "");
+          return fetch(`${base}/api/auth/me`, {
+            method: "GET",
+            credentials: "include",
+          })
+            .then((res) => res.ok)
+            .catch(() => false);
+        };
+        if (hasLocalTokens()) return;
+        checkCookieSession().then((ok) => {
+          if (!ok) redirectToLogin();
+        });
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eef3f5;
+        --card: rgba(255, 255, 255, 0.86);
+        --text: #0f172a;
+        --muted: #52606d;
+        --ok: #0f766e;
+        --fail: #b42318;
+        --pending: #b76e00;
+        --accent: #0b3340;
+        --accent-2: #0f4a5c;
+        --ring: rgba(15, 118, 110, 0.2);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Space Grotesk", "Segoe UI", Helvetica, Arial, sans-serif;
+        background: radial-gradient(1200px 600px at 15% -10%, rgba(15, 118, 110, 0.18), transparent),
+          radial-gradient(900px 500px at 85% 10%, rgba(11, 51, 64, 0.16), transparent),
+          linear-gradient(160deg, #ffffff 0%, var(--bg) 52%, #e7edf0 100%);
+        color: var(--text);
+        position: relative;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image: linear-gradient(
+            rgba(15, 23, 42, 0.06) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(circle at 40% 0%, rgba(0, 0, 0, 0.55), transparent 70%);
+        opacity: 0.5;
+        z-index: 0;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: -20% 0 0 0;
+        pointer-events: none;
+        background: radial-gradient(60% 40% at 50% 0%, rgba(15, 118, 110, 0.15), transparent 70%);
+        z-index: 0;
+      }
+
+      header {
+        padding: 24px 32px 8px;
+        position: relative;
+        z-index: 1;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        letter-spacing: -0.5px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      main {
+        padding: 16px 32px 40px;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: start;
+        position: relative;
+        z-index: 1;
+      }
+
+      .status-vanilla {
+        padding: 0 32px 8px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .status-vanilla .card {
+        margin-bottom: 16px;
+      }
+
+      .status-vanilla .vanilla-root {
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+        padding-top: 12px;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+        display: grid;
+        gap: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(8px);
+      }
+      .module-group {
+        display: grid;
+        gap: 12px;
+      }
+      .module-group--pinned {
+        position: sticky;
+        top: 16px;
+        z-index: 2;
+        background: transparent;
+        padding-top: 4px;
+        padding-bottom: 8px;
+      }
+      .module-group__header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        font-weight: 600;
+      }
+      .module-group__header--pinned {
+        color: #0f172a;
+      }
+      .module-group__meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .module-group__grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .name {
+        font-weight: 600;
+        font-size: 18px;
+      }
+
+      .url {
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .card-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .card-controls label {
+        font-weight: 600;
+      }
+      .card-controls select {
+        border-radius: 999px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 6px 10px;
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--pending);
+      }
+
+      .status.ok .dot {
+        background: var(--ok);
+        box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.15);
+        animation: pulseOk 2.2s ease-in-out infinite;
+      }
+
+      .status.fail .dot {
+        background: var(--fail);
+        box-shadow: 0 0 0 6px rgba(180, 35, 24, 0.18);
+        animation: pulseFail 1.8s ease-in-out infinite;
+      }
+
+      .status.pending .dot {
+        background: var(--pending);
+        box-shadow: 0 0 0 6px rgba(183, 110, 0, 0.15);
+        animation: pulsePending 2s ease-in-out infinite;
+      }
+      .status.disabled .dot {
+        background: #9ca3af;
+      }
+      .status.disabled {
+        color: #6b7280;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        padding: 0 32px 24px;
+        position: relative;
+        z-index: 1;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 0 32px 16px;
+        align-items: flex-end;
+        position: relative;
+        z-index: 1;
+      }
+      .toolbar-field {
+        display: grid;
+        gap: 6px;
+        min-width: 180px;
+      }
+      .toolbar-field label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .toolbar-field input,
+      .toolbar-field select {
+        border-radius: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 8px 10px;
+        font-size: 13px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        box-shadow: 0 0 0 2px transparent;
+      }
+      .toolbar-field input:focus,
+      .toolbar-field select:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--ring);
+        border-color: rgba(15, 118, 110, 0.4);
+      }
+      .toolbar-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
+        height: 38px;
+      }
+      .toolbar-meta {
+        font-size: 12px;
+        color: var(--muted);
+        min-width: 160px;
+        padding-bottom: 6px;
+      }
+      .toolbar-pagination {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .toolbar-pagination button {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: #ffffff;
+        color: var(--text);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .toolbar-pagination button[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .actions button[data-loading="true"] {
+        position: relative;
+        padding-right: 36px;
+        opacity: 0.9;
+      }
+      .actions button[data-loading="true"]::after {
+        content: "";
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        margin-top: -6px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        border-top-color: #ffffff;
+        animation: spin 700ms linear infinite;
+      }
+      button.secondary[data-loading="true"]::after {
+        border: 2px solid rgba(42, 59, 63, 0.4);
+        border-top-color: var(--accent);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .summary {
+        padding: 0 32px 8px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .summary .card {
+        gap: 10px;
+      }
+
+      .summary-title {
+        font-weight: 600;
+      }
+
+      .summary-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: baseline;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(42, 59, 63, 0.08);
+        color: var(--accent);
+      }
+
+      .pill.muted {
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #ffffff;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 12px 20px rgba(11, 51, 64, 0.18);
+      }
+
+      button.secondary {
+        background: rgba(255, 255, 255, 0.8);
+        color: var(--accent);
+        border: 1px solid rgba(11, 51, 64, 0.2);
+        box-shadow: none;
+      }
+
+      .logs {
+        padding: 0 32px 16px;
+        position: relative;
+        z-index: 1;
+      }
+      .logs .card {
+        gap: 12px;
+      }
+      .logs-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .logs-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .logs-controls label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .logs-controls select,
+      .logs-controls input,
+      .logs-controls button {
+        border-radius: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        padding: 6px 10px;
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+      }
+      .log-list {
+        display: grid;
+        gap: 10px;
+        max-height: 320px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+      .log-item {
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: grid;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.85);
+      }
+      .log-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+      .log-meta {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .log-highlight {
+        background: rgba(255, 214, 102, 0.4);
+        color: inherit;
+        padding: 0 2px;
+        border-radius: 4px;
+      }
+
+      @keyframes pulseOk {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.15);
+        }
+        50% {
+          transform: scale(1.05);
+          box-shadow: 0 0 0 10px rgba(15, 118, 110, 0.08);
+        }
+      }
+      @keyframes pulseFail {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 6px rgba(180, 35, 24, 0.18);
+        }
+        50% {
+          transform: scale(1.08);
+          box-shadow: 0 0 0 12px rgba(180, 35, 24, 0.08);
+        }
+      }
+      @keyframes pulsePending {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 6px rgba(183, 110, 0, 0.15);
+        }
+        50% {
+          transform: scale(1.06);
+          box-shadow: 0 0 0 10px rgba(183, 110, 0, 0.08);
+        }
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(42, 59, 63, 0.1);
+        color: var(--accent);
+      }
+      .badge.error {
+        background: rgba(180, 35, 24, 0.12);
+        color: var(--fail);
+      }
+      .badge.warn {
+        background: rgba(138, 106, 0, 0.15);
+        color: var(--pending);
+      }
+      .badge.info {
+        background: rgba(42, 59, 63, 0.1);
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 data-i18n="status.title">Orchestra Status</h1>
+      <p data-i18n="status.subtitle">
+        Active module check for this environment. Local toggle is per-browser; server toggle affects all.
+      </p>
+    </header>
+    <section class="actions">
+      <button id="refresh" data-i18n="status.refresh">Refresh</button>
+      <button class="secondary" id="auto" data-i18n="status.autoOff">Auto: Off</button>
+    </section>
+    <section class="toolbar">
+      <div class="toolbar-field">
+        <label for="module-search" data-i18n="status.searchLabel">Search</label>
+        <input
+          id="module-search"
+          type="search"
+          placeholder="Filter by name or URL"
+          data-i18n-placeholder="status.searchPlaceholder"
+        />
+      </div>
+      <div class="toolbar-field">
+        <label for="module-filter" data-i18n="status.filterLabel">Status</label>
+        <select id="module-filter">
+          <option value="all" data-i18n="status.filterAll">All</option>
+          <option value="ok" data-i18n="status.filterActive">Active</option>
+          <option value="pending" data-i18n="status.filterPending">Pending</option>
+          <option value="fail" data-i18n="status.filterDown">Down</option>
+          <option value="disabled" data-i18n="status.filterDisabled">Disabled</option>
+        </select>
+      </div>
+      <div class="toolbar-field">
+        <label for="module-sort" data-i18n="status.sortLabel">Sort</label>
+        <select id="module-sort">
+          <option value="name-asc" data-i18n="status.sortNameAsc">Name A → Z</option>
+          <option value="name-desc" data-i18n="status.sortNameDesc">Name Z → A</option>
+          <option value="status" data-i18n="status.sortStatus">Status</option>
+        </select>
+      </div>
+      <div class="toolbar-field">
+        <label for="module-page-size" data-i18n="status.pageSizeLabel">Page size</label>
+        <select id="module-page-size">
+          <option value="100">100</option>
+          <option value="200" selected>200</option>
+          <option value="500">500</option>
+          <option value="all" data-i18n="status.pageSizeAll">All</option>
+        </select>
+      </div>
+      <label class="toolbar-toggle">
+        <input id="module-group" type="checkbox" checked />
+        <span data-i18n="status.groupToggle">Group by type</span>
+      </label>
+      <div class="toolbar-meta" id="module-showing" data-i18n="status.showingZero">Showing 0</div>
+      <div class="toolbar-pagination" aria-label="Pagination">
+        <button class="secondary" id="module-page-prev" type="button" data-i18n="status.prev">Prev</button>
+        <span id="module-page-info">Page 1/1</span>
+        <button class="secondary" id="module-page-next" type="button" data-i18n="status.next">Next</button>
+      </div>
+    </section>
+    <section class="summary">
+      <div class="card">
+        <div class="summary-title" data-i18n="status.summaryPorts">Ports đang chạy</div>
+        <div class="summary-list" id="running-ports">
+          <span class="pill muted" data-i18n="status.summaryPortsChecking">Đang kiểm tra...</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="summary-title" data-i18n="status.summaryDisabled">Modules đang disable</div>
+        <div class="summary-list" id="disabled-modules">
+          <span class="pill muted" data-i18n="status.summaryDisabledNone">Không có</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="summary-title" data-i18n="status.summaryCounts">Tổng quan module</div>
+        <div class="summary-list" id="module-counts">
+          <span class="pill muted" data-i18n="status.summaryCountsEmpty">Chưa có dữ liệu</span>
+        </div>
+      </div>
+    </section>
+    <section class="logs">
+      <div class="card">
+        <div class="logs-header">
+          <div>
+            <div class="summary-title" data-i18n="status.logsTitle">Module alerts</div>
+            <div class="module-group__meta" id="logs-meta" data-i18n="status.logsMetaEmpty">
+              No alerts yet
+            </div>
+          </div>
+          <div class="logs-controls">
+            <label for="log-search" data-i18n="status.logsSearchLabel">Search</label>
+            <input id="log-search" type="search" placeholder="Filter logs" />
+            <label for="log-filter" data-i18n="status.logsFilterLabel">Level</label>
+            <select id="log-filter">
+              <option value="all" data-i18n="status.logsAll">All</option>
+              <option value="error" data-i18n="status.logsError">Error</option>
+              <option value="warn" data-i18n="status.logsWarn">Warning</option>
+              <option value="info" data-i18n="status.logsInfo">Info</option>
+            </select>
+            <button class="secondary" id="log-clear" type="button" data-i18n="status.logsClear">
+              Clear
+            </button>
+          </div>
+        </div>
+        <div class="log-list" id="log-list">
+          <div class="log-item">
+            <div class="log-title">
+              <span class="badge info">Info</span>
+              <span data-i18n="status.logsEmpty">No alerts yet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <main id="grid"></main>
+
+    <script>
+      const STATUS_I18N = {
+        en: {
+          "status.title": "Orchestra Status",
+          "status.subtitle":
+            "Active module check for this environment. Local toggle is per-browser; server toggle affects all.",
+          "status.refresh": "Refresh",
+          "status.refreshing": "Refreshing...",
+          "status.autoOff": "Auto: Off",
+          "status.autoOn": "Auto: On",
+          "status.autoOffProd": "Auto: Off (prod)",
+          "status.searchLabel": "Search",
+          "status.searchPlaceholder": "Filter by name or URL",
+          "status.filterLabel": "Status",
+          "status.filterAll": "All",
+          "status.filterActive": "Active",
+          "status.filterPending": "Pending",
+          "status.filterDown": "Down",
+          "status.filterDisabled": "Disabled",
+          "status.sortLabel": "Sort",
+          "status.sortNameAsc": "Name A → Z",
+          "status.sortNameDesc": "Name Z → A",
+          "status.sortStatus": "Status",
+          "status.pageSizeLabel": "Page size",
+          "status.pageSizeAll": "All",
+          "status.groupToggle": "Group by type",
+          "status.showingZero": "Showing 0 of 0",
+          "status.showingRange": "Showing {start}-{end} of {total}",
+          "status.pageInfo": "Page {page}/{pages}",
+          "status.prev": "Prev",
+          "status.next": "Next",
+          "status.summaryPorts": "Running ports",
+          "status.summaryPortsChecking": "Checking...",
+          "status.summaryPortsNone": "None",
+          "status.summaryDisabled": "Disabled modules",
+          "status.summaryDisabledNone": "None",
+          "status.summaryCounts": "Module overview",
+          "status.summaryCountsEmpty": "No data yet",
+          "status.groupCount": "{count} modules",
+          "status.countTotal": "Total: {count}",
+          "status.countActive": "Active: {count}",
+          "status.countPending": "Pending: {count}",
+          "status.countDown": "Down: {count}",
+          "status.countDisabled": "Disabled: {count}",
+          "status.cardDisabledByServer": "Disabled by server",
+          "status.cardEnable": "Enable",
+          "status.cardDisable": "Disable",
+          "status.stateActive": "Active",
+          "status.stateDown": "Down",
+          "status.stateDisabled": "Disabled",
+          "status.stateChecking": "Checking...",
+          "status.notConfigured": "Not configured",
+          "status.group.shell": "Shell",
+          "status.group.core": "Core",
+          "status.group.dashboard": "Dashboard",
+          "status.group.playgrounds": "Playgrounds",
+          "status.group.auth": "Auth",
+          "status.group.other": "Other",
+          "status.logsTitle": "Module alerts",
+          "status.logsMetaEmpty": "No alerts yet",
+          "status.logsMetaCount": "{count} events · {errors} errors · {warnings} warnings",
+          "status.logsSearchLabel": "Search",
+          "status.logsSearchPlaceholder": "Filter logs",
+          "status.logsFilterLabel": "Level",
+          "status.logsAll": "All",
+          "status.logsError": "Error",
+          "status.logsWarn": "Warning",
+          "status.logsInfo": "Info",
+          "status.logsClear": "Clear",
+          "status.logsEmpty": "No alerts yet",
+          "status.logDown": "Module is unreachable",
+          "status.logRecovered": "Module recovered",
+          "status.logDisabledLocal": "Module disabled locally",
+          "status.logDisabledServer": "Module disabled by server",
+          "status.logRuntimeError": "Module error",
+          "status.logUnhandledRejection": "Unhandled promise rejection",
+          "status.logStatusError": "Status page error",
+          "status.disabledModeLabel": "Disabled view",
+          "status.disabledModeHide": "Hide",
+          "status.disabledModePlaceholder": "Maintenance",
+        },
+        vi: {
+          "status.title": "Trạng thái Orchestra",
+          "status.subtitle":
+            "Kiểm tra module đang hoạt động trong môi trường này. Tắt cục bộ theo trình duyệt; tắt từ server áp dụng cho tất cả.",
+          "status.refresh": "Làm mới",
+          "status.refreshing": "Đang làm mới...",
+          "status.autoOff": "Tự động: Tắt",
+          "status.autoOn": "Tự động: Bật",
+          "status.autoOffProd": "Tự động: Tắt (prod)",
+          "status.searchLabel": "Tìm kiếm",
+          "status.searchPlaceholder": "Lọc theo tên hoặc URL",
+          "status.filterLabel": "Trạng thái",
+          "status.filterAll": "Tất cả",
+          "status.filterActive": "Hoạt động",
+          "status.filterPending": "Đang kiểm tra",
+          "status.filterDown": "Đang lỗi",
+          "status.filterDisabled": "Đã tắt",
+          "status.sortLabel": "Sắp xếp",
+          "status.sortNameAsc": "Tên A → Z",
+          "status.sortNameDesc": "Tên Z → A",
+          "status.sortStatus": "Trạng thái",
+          "status.pageSizeLabel": "Kích thước trang",
+          "status.pageSizeAll": "Tất cả",
+          "status.groupToggle": "Nhóm theo loại",
+          "status.showingZero": "Hiển thị 0 trên 0",
+          "status.showingRange": "Hiển thị {start}-{end} trên {total}",
+          "status.pageInfo": "Trang {page}/{pages}",
+          "status.prev": "Trước",
+          "status.next": "Sau",
+          "status.summaryPorts": "Cổng đang chạy",
+          "status.summaryPortsChecking": "Đang kiểm tra...",
+          "status.summaryPortsNone": "Không có",
+          "status.summaryDisabled": "Module đang tắt",
+          "status.summaryDisabledNone": "Không có",
+          "status.summaryCounts": "Tổng quan module",
+          "status.summaryCountsEmpty": "Chưa có dữ liệu",
+          "status.groupCount": "{count} module",
+          "status.countTotal": "Tổng: {count}",
+          "status.countActive": "Hoạt động: {count}",
+          "status.countPending": "Đang kiểm tra: {count}",
+          "status.countDown": "Đang lỗi: {count}",
+          "status.countDisabled": "Đã tắt: {count}",
+          "status.cardDisabledByServer": "Bị tắt bởi server",
+          "status.cardEnable": "Bật",
+          "status.cardDisable": "Tắt",
+          "status.stateActive": "Hoạt động",
+          "status.stateDown": "Đang lỗi",
+          "status.stateDisabled": "Đã tắt",
+          "status.stateChecking": "Đang kiểm tra...",
+          "status.notConfigured": "Chưa cấu hình",
+          "status.group.shell": "Shell",
+          "status.group.core": "Core",
+          "status.group.dashboard": "Dashboard",
+          "status.group.playgrounds": "Playgrounds",
+          "status.group.auth": "Auth",
+          "status.group.other": "Khác",
+          "status.logsTitle": "Cảnh báo module",
+          "status.logsMetaEmpty": "Chưa có cảnh báo",
+          "status.logsMetaCount": "{count} sự kiện · {errors} lỗi · {warnings} cảnh báo",
+          "status.logsSearchLabel": "Tìm kiếm",
+          "status.logsSearchPlaceholder": "Lọc logs",
+          "status.logsFilterLabel": "Mức độ",
+          "status.logsAll": "Tất cả",
+          "status.logsError": "Lỗi",
+          "status.logsWarn": "Cảnh báo",
+          "status.logsInfo": "Thông tin",
+          "status.logsClear": "Xóa",
+          "status.logsEmpty": "Chưa có cảnh báo",
+          "status.logDown": "Module không truy cập được",
+          "status.logRecovered": "Module đã phục hồi",
+          "status.logDisabledLocal": "Module bị tắt cục bộ",
+          "status.logDisabledServer": "Module bị tắt bởi server",
+          "status.logRuntimeError": "Module gặp lỗi",
+          "status.logUnhandledRejection": "Promise bị lỗi chưa xử lý",
+          "status.logStatusError": "Lỗi trang trạng thái",
+          "status.disabledModeLabel": "Hiển thị khi tắt",
+          "status.disabledModeHide": "Ẩn",
+          "status.disabledModePlaceholder": "Bảo trì",
+        },
+      };
+      const LOCALE_KEY = "app-locale";
+      const normalizeLocale = (value) => (value === "vi" ? "vi" : "en");
+      let currentLocale = normalizeLocale(
+        typeof window !== "undefined" ? window.localStorage.getItem(LOCALE_KEY) : "en"
+      );
+      const t = (key) => STATUS_I18N[currentLocale]?.[key] ?? STATUS_I18N.en[key] ?? key;
+      const format = (key, params = {}) => {
+        let text = t(key);
+        Object.entries(params).forEach(([token, value]) => {
+          text = text.replace(new RegExp(`\\{${token}\\}`, "g"), String(value));
+        });
+        return text;
+      };
+      const applyStaticI18n = () => {
+        document.title = t("status.title");
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (!key) return;
+          el.textContent = t(key);
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+          const key = el.getAttribute("data-i18n-placeholder");
+          if (!key) return;
+          el.setAttribute("placeholder", t(key));
+        });
+        if (logSearchEl) {
+          logSearchEl.setAttribute("placeholder", t("status.logsSearchPlaceholder"));
+        }
+      };
+      const setLocale = (value) => {
+        currentLocale = normalizeLocale(value);
+        document.documentElement.setAttribute("lang", currentLocale);
+        applyStaticI18n();
+      };
+
+      const statusIsLocal = document.documentElement.dataset.isLocal === "true";
+      const localModules = [
+        { name: "@org/header-react", url: "http://localhost:9012/org-header-react.js" },
+        { name: "@org/catalog", url: "http://localhost:9001/org-catalog.js" },
+        { name: "@org/profile-vue", url: "http://localhost:9002/profile-vue.js" },
+        { name: "@org/dashboard-vue", url: "http://localhost:9004/dashboard-vue.js" },
+        { name: "@org/checkout-angular", url: "http://localhost:9003/main.js" },
+        { name: "@org/auth-angular", url: "http://localhost:9010/main.js" },
+        {
+          name: "@org/playground-angular",
+          url: "http://localhost:9005/main.js",
+          fallbackUrl: "http://localhost:4201/",
+        },
+        { name: "@org/playground-vue", url: "http://localhost:9006/playground-vue.js" },
+        { name: "@org/playground-react", url: "http://localhost:9007/org-playground.js" },
+        { name: "@org/playground-vanilla", url: "http://localhost:9008/org-playground-vanilla.js" },
+        { name: "@org/playground-svelte", url: "http://localhost:9011/org-playground-svelte.js" },
+        { name: "@org/simple-vanilla", url: "http://localhost:9009/org-simple-vanilla.js" },
+      ];
+      const toggleUrl = "<%= process.env.MFE_TOGGLE_URL || '/mfe-toggle.json' %>";
+      const importmapUrl = "<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>";
+
+      const grid = document.getElementById("grid");
+      const moduleSearchInput = document.getElementById("module-search");
+      const moduleFilterSelect = document.getElementById("module-filter");
+      const moduleSortSelect = document.getElementById("module-sort");
+      const modulePageSizeSelect = document.getElementById("module-page-size");
+      const moduleGroupToggle = document.getElementById("module-group");
+      const moduleCountsEl = document.getElementById("module-counts");
+      const moduleShowingEl = document.getElementById("module-showing");
+      const modulePageInfo = document.getElementById("module-page-info");
+      const modulePagePrevBtn = document.getElementById("module-page-prev");
+      const modulePageNextBtn = document.getElementById("module-page-next");
+      const runningPortsEl = document.getElementById("running-ports");
+      const disabledModulesEl = document.getElementById("disabled-modules");
+      const logListEl = document.getElementById("log-list");
+      const logFilterEl = document.getElementById("log-filter");
+      const logSearchEl = document.getElementById("log-search");
+      const logClearEl = document.getElementById("log-clear");
+      const logMetaEl = document.getElementById("logs-meta");
+      const refreshBtn = document.getElementById("refresh");
+      const autoBtn = document.getElementById("auto");
+      let isRefreshing = false;
+      let autoTimer = null;
+      const AUTO_INTERVAL = 8000;
+      const AUTO_INTERVAL_BG = 20000;
+      const setRefreshLabel = () => {
+        if (!refreshBtn) return;
+        refreshBtn.textContent = isRefreshing ? t("status.refreshing") : t("status.refresh");
+      };
+      const setAutoLabel = () => {
+        if (!autoBtn) return;
+        if (statusIsProd) {
+          autoBtn.textContent = t("status.autoOffProd");
+          return;
+        }
+        autoBtn.textContent = autoTimer ? t("status.autoOn") : t("status.autoOff");
+      };
+      const disabledKey = "mfe-disabled";
+      const disabledModeKey = "mfe-disabled-mode";
+      const bridgeTargets = [
+        { name: "@org/header-react", origin: "http://localhost:9012", url: "http://localhost:9012/?mfe-bridge=1" },
+        { name: "@org/catalog", origin: "http://localhost:9001", url: "http://localhost:9001/?mfe-bridge=1" },
+        { name: "@org/profile-vue", origin: "http://localhost:9002", url: "http://localhost:9002/?mfe-bridge=1" },
+        { name: "@org/dashboard-vue", origin: "http://localhost:9004", url: "http://localhost:9004/?mfe-bridge=1" },
+        { name: "@org/checkout-angular", origin: "http://localhost:4200", url: "http://localhost:4200/?mfe-bridge=1" },
+        { name: "@org/auth-angular", origin: "http://localhost:9010", url: "http://localhost:9010/?mfe-bridge=1" },
+        { name: "@org/playground-angular", origin: "http://localhost:9005", url: "http://localhost:9005/?mfe-bridge=1" },
+        { name: "@org/playground-react", origin: "http://localhost:9007", url: "http://localhost:9007/?mfe-bridge=1" },
+        { name: "@org/playground-vue", origin: "http://localhost:9006", url: "http://localhost:9006/?mfe-bridge=1" },
+        { name: "@org/playground-vanilla", origin: "http://localhost:9008", url: "http://localhost:9008/?mfe-bridge=1" },
+        { name: "@org/playground-svelte", origin: "http://localhost:9011", url: "http://localhost:9011/?mfe-bridge=1" },
+        { name: "@org/simple-vanilla", origin: "http://localhost:9009", url: "http://localhost:9009/?mfe-bridge=1" },
+      ];
+      const bridgeFrames = new Map();
+      const vanillaUrl = statusIsLocal
+        ? "http://localhost:9008/org-playground-vanilla.js"
+        : null;
+      const MODULE_TTL_MS = statusIsLocal ? 0 : 30000;
+      let moduleCache = { ts: 0, data: [] };
+      const LOG_STORAGE_KEY = "mfe-status-logs";
+      const MAX_LOGS = 200;
+      let logs = [];
+      const logFilter = () => logFilterEl?.value || "all";
+      const logSearch = () => logSearchEl?.value?.trim().toLowerCase() || "";
+      let logSearchTimer = null;
+      const stateByModule = new Map();
+
+      const readDisabled = () => {
+        try {
+          const raw = window.localStorage.getItem(disabledKey);
+          if (!raw) return new Set();
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return new Set();
+          return new Set(parsed);
+        } catch {
+          return new Set();
+        }
+      };
+
+      const writeDisabled = (set) => {
+        window.localStorage.setItem(disabledKey, JSON.stringify(Array.from(set)));
+      };
+
+      const normalizeDisabledMode = (value) => (value === "placeholder" ? "placeholder" : "hide");
+
+      const readDisabledModeConfig = () => {
+        try {
+          const raw = window.localStorage.getItem(disabledModeKey);
+          if (!raw) return { default: "hide", apps: {} };
+          const parsed = JSON.parse(raw);
+          if (parsed === "hide" || parsed === "placeholder") {
+            return { default: parsed, apps: {} };
+          }
+          if (!parsed || typeof parsed !== "object") {
+            return { default: "hide", apps: {} };
+          }
+          const apps = {};
+          if (parsed.apps && typeof parsed.apps === "object") {
+            Object.entries(parsed.apps).forEach(([name, mode]) => {
+              const normalized = normalizeDisabledMode(mode);
+              apps[name] = normalized;
+            });
+          }
+          const def = normalizeDisabledMode(parsed.default);
+          return { default: def, apps };
+        } catch {
+          return { default: "hide", apps: {} };
+        }
+      };
+
+      const writeDisabledModeConfig = (config) => {
+        try {
+          window.localStorage.setItem(disabledModeKey, JSON.stringify(config));
+        } catch {
+          // ignore
+        }
+      };
+
+      const resolveDisabledMode = (name) => {
+        const config = readDisabledModeConfig();
+        return config.apps?.[name] || config.default || "hide";
+      };
+
+      let bridgeFramesRequested = false;
+      const ensureBridgeFrames = () => {
+        if (!statusIsLocal) return;
+        if (bridgeFrames.size > 0) return;
+        if (bridgeFramesRequested) return;
+        bridgeFramesRequested = true;
+        const container = document.createElement("div");
+        container.style.display = "none";
+        document.body.appendChild(container);
+        // Stagger iframe creation to avoid blocking the main thread
+        let idx = 0;
+        const createNext = () => {
+          if (idx >= bridgeTargets.length) return;
+          const target = bridgeTargets[idx++];
+          const iframe = document.createElement("iframe");
+          iframe.src = target.url;
+          iframe.title = target.name;
+          iframe.loading = "lazy";
+          container.appendChild(iframe);
+          bridgeFrames.set(target.name, { iframe, origin: target.origin });
+          if (idx < bridgeTargets.length) {
+            requestAnimationFrame(createNext);
+          }
+        };
+        createNext();
+      };
+
+      const broadcastDisabled = () => {
+        if (!statusIsLocal) return;
+        ensureBridgeFrames();
+        const disabled = Array.from(readDisabled());
+        // Notify bridge iframes (individual MFE ports)
+        bridgeFrames.forEach(({ iframe, origin }) => {
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              { type: "mfe-toggle", disabled },
+              origin
+            );
+          }
+        });
+        // Notify root-config tab via BroadcastChannel for immediate cross-tab sync.
+        // The storage event alone is unreliable (doesn't fire in the same tab,
+        // and may not fire if the serialized value is identical).
+        try {
+          const bc = new BroadcastChannel("mfe-disabled-sync");
+          bc.postMessage({ type: "mfe-toggle", disabled });
+          bc.close();
+        } catch {
+          // BroadcastChannel not supported — storage event is the fallback
+        }
+      };
+
+      const statusIsProd = !statusIsLocal;
+
+      const isSafeUrl = (url) => /^(https?:)?\/\//.test(url || "");
+
+      const checkUrl = (url) => {
+        if (!isSafeUrl(url)) return Promise.resolve(false);
+        const controller = new AbortController();
+        const timeoutMs = statusIsProd ? 800 : 800;
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        return fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal })
+          .then((res) => res.ok || res.type === "opaque")
+          .catch(() => false)
+          .finally(() => clearTimeout(timer));
+      };
+
+      const checkModuleUrl = async (mod) => {
+        // Check primary and fallback in parallel for speed
+        const checks = [checkUrl(mod.url)];
+        if (mod.fallbackUrl) {
+          checks.push(checkUrl(mod.fallbackUrl));
+        }
+        const [primaryOk, fallbackOk] = await Promise.all(checks);
+        if (primaryOk) {
+          return { ok: true, activeUrl: mod.url };
+        }
+        if (fallbackOk) {
+          return { ok: true, activeUrl: mod.fallbackUrl };
+        }
+        return { ok: false, activeUrl: mod.url };
+      };
+
+      const loadLogs = () => {
+        try {
+          const raw = window.localStorage.getItem(LOG_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) {
+            logs = parsed;
+          }
+        } catch {
+          logs = [];
+        }
+      };
+
+      const saveLogs = () => {
+        try {
+          window.localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(logs));
+        } catch {
+          // ignore
+        }
+      };
+
+      const pushLog = (entry) => {
+        logs = [entry, ...logs];
+        if (logs.length > MAX_LOGS) {
+          logs = logs.slice(0, MAX_LOGS);
+        }
+        saveLogs();
+        renderLogs();
+      };
+
+      const formatTime = (ts) => {
+        try {
+          return new Date(ts).toLocaleString();
+        } catch {
+          return String(ts);
+        }
+      };
+
+      const logMessage = (entry) => {
+        if (entry.messageKey) {
+          return format(entry.messageKey, entry.params || {});
+        }
+        return entry.message || "";
+      };
+
+      const updateLogMeta = () => {
+        if (!logMetaEl) return;
+        if (!logs.length) {
+          logMetaEl.textContent = t("status.logsMetaEmpty");
+          return;
+        }
+        const errors = logs.filter((item) => item.level === "error").length;
+        const warnings = logs.filter((item) => item.level === "warn").length;
+        logMetaEl.textContent = format("status.logsMetaCount", {
+          count: logs.length,
+          errors,
+          warnings,
+        });
+      };
+
+      const appendHighlightedText = (el, text, query) => {
+        if (!query) {
+          el.textContent = text || "";
+          return;
+        }
+        const source = text || "";
+        const lower = source.toLowerCase();
+        const needle = query.toLowerCase();
+        let start = 0;
+        let index = lower.indexOf(needle, start);
+        while (index !== -1) {
+          if (index > start) {
+            el.appendChild(document.createTextNode(source.slice(start, index)));
+          }
+          const mark = document.createElement("mark");
+          mark.className = "log-highlight";
+          mark.textContent = source.slice(index, index + needle.length);
+          el.appendChild(mark);
+          start = index + needle.length;
+          index = lower.indexOf(needle, start);
+        }
+        if (start < source.length) {
+          el.appendChild(document.createTextNode(source.slice(start)));
+        }
+      };
+
+      const renderLogs = () => {
+        if (!logListEl) return;
+        const selected = logFilter();
+        const search = logSearch();
+        const list = (selected === "all"
+          ? logs
+          : logs.filter((item) => item.level === selected)
+        ).filter((item) => {
+          if (!search) return true;
+          const haystack = [
+            item.module,
+            item.message,
+            item.detail,
+            item.url,
+            item.messageKey,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(search);
+        });
+        logListEl.innerHTML = "";
+        updateLogMeta();
+          if (!list.length) {
+            const empty = document.createElement("div");
+            empty.className = "log-item";
+            const title = document.createElement("div");
+            title.className = "log-title";
+            const badge = document.createElement("span");
+            badge.className = "badge info";
+            badge.textContent = t("status.logsInfo");
+            const text = document.createElement("span");
+            text.textContent = t("status.logsEmpty");
+            title.appendChild(badge);
+            title.appendChild(text);
+            empty.appendChild(title);
+            logListEl.appendChild(empty);
+            return;
+          }
+        list.forEach((entry) => {
+          const item = document.createElement("div");
+          item.className = "log-item";
+          const title = document.createElement("div");
+          title.className = "log-title";
+          const badge = document.createElement("span");
+          badge.className = `badge ${entry.level}`;
+          badge.textContent =
+            entry.level === "error"
+              ? t("status.logsError")
+              : entry.level === "warn"
+              ? t("status.logsWarn")
+              : t("status.logsInfo");
+          const text = document.createElement("span");
+          appendHighlightedText(text, logMessage(entry), search);
+          title.appendChild(badge);
+          title.appendChild(text);
+          item.appendChild(title);
+          const meta = document.createElement("div");
+          meta.className = "log-meta";
+          const when = document.createElement("span");
+          when.textContent = formatTime(entry.ts);
+          meta.appendChild(when);
+          if (entry.module) {
+            const mod = document.createElement("span");
+            appendHighlightedText(mod, entry.module, search);
+            meta.appendChild(mod);
+          }
+          if (entry.url) {
+            const url = document.createElement("span");
+            appendHighlightedText(url, entry.url, search);
+            meta.appendChild(url);
+          }
+          if (entry.detail) {
+            const detail = document.createElement("span");
+            appendHighlightedText(detail, entry.detail, search);
+            meta.appendChild(detail);
+          }
+          item.appendChild(meta);
+          logListEl.appendChild(item);
+        });
+      };
+
+      const createStatusEl = (label, stateClass = "pending") => {
+        const status = document.createElement("div");
+        status.className = `status ${stateClass}`;
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        const text = document.createElement("span");
+        text.textContent = label;
+        status.appendChild(dot);
+        status.appendChild(text);
+        return status;
+      };
+
+      const setPending = (el) => {
+        if (!el) return;
+        el.className = "status pending";
+        if (el.dataset) {
+          el.dataset.state = "pending";
+        }
+        const label = el.querySelector("span:not(.dot)");
+        if (label) {
+          label.textContent = t("status.stateChecking");
+        }
+      };
+
+      const cards = new Map();
+      let currentModules = [];
+      let searchQuery = "";
+      let statusFilter = "all";
+      let sortMode = "name-asc";
+      let groupEnabled = true;
+      let pageSize = 200;
+      let pageIndex = 0;
+      let lastFilteredCount = 0;
+      let lastRunningPorts = null;
+      let lastDisabledList = [];
+      const pinnedModules = new Set(["@org/header-react"]);
+      const extractPort = (url) => {
+        if (!url || typeof url !== "string") return null;
+        const match = url.match(/:(\d+)(?:\/|$)/);
+        return match ? `:${match[1]}` : null;
+      };
+
+      const getGroupKey = (name) => {
+        if (!name) return "other";
+        const clean = name.replace(/^@org\//, "");
+        if (clean.startsWith("playground")) return "playgrounds";
+        if (clean.startsWith("auth")) return "auth";
+        if (clean.startsWith("header")) return "shell";
+        if (clean.startsWith("dashboard")) return "dashboard";
+        return "core";
+      };
+
+      const getModuleState = (mod) => mod.__state || "pending";
+
+      const applyFilters = (modules) => {
+        const query = searchQuery.trim().toLowerCase();
+        return modules.filter((mod) => {
+          if (!mod) return false;
+          if (query) {
+            const haystack = `${mod.name || ""} ${mod.url || ""}`.toLowerCase();
+            if (!haystack.includes(query)) return false;
+          }
+          const state = getModuleState(mod);
+          if (statusFilter !== "all" && state !== statusFilter) return false;
+          return true;
+        });
+      };
+
+      const sortModules = (modules) => {
+        const sorted = [...modules];
+        sorted.sort((a, b) => {
+          const aPinned = pinnedModules.has(a.name);
+          const bPinned = pinnedModules.has(b.name);
+          if (aPinned !== bPinned) return aPinned ? -1 : 1;
+          return 0;
+        });
+        if (sortMode === "name-desc") {
+          sorted.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
+        } else if (sortMode === "status") {
+          const order = { ok: 0, pending: 1, fail: 2, disabled: 3 };
+          sorted.sort((a, b) => {
+            const aRank = order[getModuleState(a)] ?? 4;
+            const bRank = order[getModuleState(b)] ?? 4;
+            if (aRank !== bRank) return aRank - bRank;
+            return (a.name || "").localeCompare(b.name || "");
+          });
+        } else {
+          sorted.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        }
+        return sorted;
+      };
+
+      const buildGroupSection = (groupKey, count) => {
+        const section = document.createElement("section");
+        section.className = "module-group";
+        const header = document.createElement("div");
+        header.className = "module-group__header";
+        const title = document.createElement("div");
+        title.textContent = t(`status.group.${groupKey}`);
+        const meta = document.createElement("div");
+        meta.className = "module-group__meta";
+        meta.textContent = format("status.groupCount", { count });
+        header.appendChild(title);
+        header.appendChild(meta);
+        const gridEl = document.createElement("div");
+        gridEl.className = "module-group__grid";
+        section.appendChild(header);
+        section.appendChild(gridEl);
+        return { section, gridEl };
+      };
+
+      const updateModuleCounts = (modules) => {
+        if (!moduleCountsEl) return;
+        const counts = { total: modules.length, ok: 0, pending: 0, fail: 0, disabled: 0 };
+        modules.forEach((mod) => {
+          const state = getModuleState(mod);
+          if (state in counts) counts[state] += 1;
+        });
+        moduleCountsEl.innerHTML = "";
+        const makePill = (label) => {
+          const pill = document.createElement("span");
+          pill.className = "pill";
+          pill.textContent = label;
+          return pill;
+        };
+        moduleCountsEl.appendChild(makePill(format("status.countTotal", { count: counts.total })));
+        moduleCountsEl.appendChild(makePill(format("status.countActive", { count: counts.ok })));
+        moduleCountsEl.appendChild(makePill(format("status.countPending", { count: counts.pending })));
+        moduleCountsEl.appendChild(makePill(format("status.countDown", { count: counts.fail })));
+        moduleCountsEl.appendChild(makePill(format("status.countDisabled", { count: counts.disabled })));
+      };
+
+
+      const renderRunningPorts = (ports) => {
+        if (!runningPortsEl) return;
+        runningPortsEl.innerHTML = "";
+        if (!ports) {
+          const pill = document.createElement("span");
+          pill.className = "pill muted";
+          pill.textContent = t("status.summaryPortsChecking");
+          runningPortsEl.appendChild(pill);
+          return;
+        }
+        if (ports.length === 0) {
+          const pill = document.createElement("span");
+          pill.className = "pill muted";
+          pill.textContent = t("status.summaryPortsNone");
+          runningPortsEl.appendChild(pill);
+          return;
+        }
+        ports.forEach((port) => {
+          const pill = document.createElement("span");
+          pill.className = "pill";
+          pill.textContent = port;
+          runningPortsEl.appendChild(pill);
+        });
+      };
+
+      const renderDisabledModules = (names) => {
+        if (!disabledModulesEl) return;
+        disabledModulesEl.innerHTML = "";
+        if (!names || names.length === 0) {
+          const pill = document.createElement("span");
+          pill.className = "pill muted";
+          pill.textContent = t("status.summaryDisabledNone");
+          disabledModulesEl.appendChild(pill);
+          return;
+        }
+        names.forEach((name) => {
+          const pill = document.createElement("span");
+          pill.className = "pill";
+          pill.textContent = name;
+          disabledModulesEl.appendChild(pill);
+        });
+      };
+
+      const getPageCount = (total) => {
+        if (total === 0) return 0;
+        return pageSize === Infinity ? 1 : Math.max(1, Math.ceil(total / pageSize));
+      };
+
+      const clampPageIndex = (index, total) => {
+        const pageCount = getPageCount(total);
+        if (pageCount <= 1) return 0;
+        return Math.min(pageCount - 1, Math.max(0, index));
+      };
+
+      const updateShowing = (start, end, total) => {
+        lastFilteredCount = total;
+        if (moduleShowingEl) {
+          moduleShowingEl.textContent =
+            total === 0
+              ? t("status.showingZero")
+              : format("status.showingRange", { start: start + 1, end, total });
+        }
+        if (modulePageInfo) {
+          const pageCount = getPageCount(total);
+          const pageNumber = pageCount === 0 ? 0 : pageIndex + 1;
+          modulePageInfo.textContent = format("status.pageInfo", {
+            page: pageNumber,
+            pages: pageCount,
+          });
+        }
+        if (modulePagePrevBtn) {
+          modulePagePrevBtn.disabled = total === 0 || pageIndex <= 0;
+        }
+        if (modulePageNextBtn) {
+          const pageCount = getPageCount(total);
+          modulePageNextBtn.disabled = total === 0 || pageIndex >= pageCount - 1;
+        }
+      };
+
+      const layoutCards = () => {
+        if (!grid) return;
+        const filtered = sortModules(applyFilters(currentModules));
+        updateModuleCounts(filtered);
+        const total = filtered.length;
+        pageIndex = clampPageIndex(pageIndex, total);
+        const start = pageSize === Infinity ? 0 : pageIndex * pageSize;
+        const end = pageSize === Infinity ? total : Math.min(total, start + pageSize);
+        const paged = filtered.slice(start, end);
+        updateShowing(start, end, total);
+        const fragment = document.createDocumentFragment();
+        if (!groupEnabled) {
+          const flat = document.createElement("div");
+          flat.className = "module-group__grid";
+          paged.forEach((mod) => {
+            const entry = cards.get(mod.name);
+            if (entry) flat.appendChild(entry.card);
+          });
+          fragment.appendChild(flat);
+        } else {
+          const order = ["shell", "core", "dashboard", "playgrounds", "auth", "other"];
+          const groups = new Map();
+          paged.forEach((mod) => {
+            const group = getGroupKey(mod.name);
+            if (!groups.has(group)) groups.set(group, []);
+            groups.get(group).push(mod);
+          });
+          order.forEach((group) => {
+            const list = groups.get(group);
+            if (!list || list.length === 0) return;
+            const { section, gridEl } = buildGroupSection(group, list.length);
+            list.forEach((mod) => {
+              const entry = cards.get(mod.name);
+              if (entry) gridEl.appendChild(entry.card);
+            });
+            fragment.appendChild(section);
+          });
+          groups.forEach((list, group) => {
+            if (order.includes(group) || !list.length) return;
+            const { section, gridEl } = buildGroupSection(group, list.length);
+            list.forEach((mod) => {
+              const entry = cards.get(mod.name);
+              if (entry) gridEl.appendChild(entry.card);
+            });
+            fragment.appendChild(section);
+          });
+        }
+        grid.innerHTML = "";
+        grid.appendChild(fragment);
+      };
+
+      const render = (modules, serverDisabled) => {
+        currentModules = modules;
+        const disabled = new Set([...readDisabled(), ...serverDisabled]);
+        const seen = new Set();
+        modules.forEach((mod) => {
+          seen.add(mod.name);
+          const isDisabled = disabled.has(mod.name);
+          const isServerDisabled = serverDisabled.has(mod.name);
+          let entry = cards.get(mod.name);
+          if (!entry) {
+            const card = document.createElement("div");
+            card.className = "card";
+            const nameEl = document.createElement("div");
+            nameEl.className = "name";
+            nameEl.textContent = mod.name;
+            const urlEl = document.createElement("div");
+            urlEl.className = "url";
+            const statusEl = createStatusEl(t("status.stateChecking"), "pending");
+            const toggle = document.createElement("button");
+            toggle.className = "toggle";
+            toggle.setAttribute("data-name", mod.name);
+            const modeRow = document.createElement("div");
+            modeRow.className = "card-controls";
+            const modeLabel = document.createElement("label");
+            modeLabel.textContent = t("status.disabledModeLabel");
+            const modeSelect = document.createElement("select");
+            const hideOption = document.createElement("option");
+            hideOption.value = "hide";
+            hideOption.dataset.i18nKey = "status.disabledModeHide";
+            hideOption.textContent = t("status.disabledModeHide");
+            const placeholderOption = document.createElement("option");
+            placeholderOption.value = "placeholder";
+            placeholderOption.dataset.i18nKey = "status.disabledModePlaceholder";
+            placeholderOption.textContent = t("status.disabledModePlaceholder");
+            modeSelect.appendChild(hideOption);
+            modeSelect.appendChild(placeholderOption);
+            modeSelect.value = resolveDisabledMode(mod.name);
+            modeSelect.addEventListener("change", () => {
+              const config = readDisabledModeConfig();
+              const nextMode = modeSelect.value;
+              const next = {
+                default: config.default || "hide",
+                apps: { ...(config.apps || {}) },
+              };
+              if (nextMode === next.default) {
+                delete next.apps[mod.name];
+              } else {
+                next.apps[mod.name] = nextMode;
+              }
+              writeDisabledModeConfig(next);
+              // Notify root-config tab of display mode change
+              try {
+                const bc = new BroadcastChannel("mfe-disabled-sync");
+                bc.postMessage({ type: "mfe-disabled-mode", app: mod.name, mode: nextMode });
+                bc.close();
+              } catch {
+                // BroadcastChannel not supported
+              }
+            });
+            modeRow.appendChild(modeLabel);
+            modeRow.appendChild(modeSelect);
+            toggle.addEventListener("click", () => {
+              const disabledSet = readDisabled();
+              if (serverDisabled.has(mod.name)) {
+                return;
+              }
+              if (disabledSet.has(mod.name)) {
+                disabledSet.delete(mod.name);
+              } else {
+                disabledSet.add(mod.name);
+              }
+              writeDisabled(disabledSet);
+              broadcastDisabled();
+              runCheck();
+            });
+            card.appendChild(nameEl);
+            card.appendChild(urlEl);
+            card.appendChild(statusEl);
+            card.appendChild(modeRow);
+            card.appendChild(toggle);
+            grid.appendChild(card);
+            entry = { card, nameEl, urlEl, statusEl, toggle, modeLabel, modeSelect };
+            cards.set(mod.name, entry);
+          }
+          mod.__state = isDisabled ? "disabled" : mod.__state || "pending";
+          entry.urlEl.textContent = mod.url;
+          entry.toggle.textContent = isServerDisabled
+            ? t("status.cardDisabledByServer")
+            : isDisabled
+            ? t("status.cardEnable")
+            : t("status.cardDisable");
+          entry.toggle.disabled = isServerDisabled;
+          if (entry.modeLabel) {
+            entry.modeLabel.textContent = t("status.disabledModeLabel");
+          }
+          if (entry.modeSelect) {
+            const mode = resolveDisabledMode(mod.name);
+            entry.modeSelect.value = mode;
+            Array.from(entry.modeSelect.options).forEach((opt) => {
+              const key = opt.dataset?.i18nKey;
+              if (key) {
+                opt.textContent = t(key);
+              }
+            });
+          }
+          mod.__el = entry.statusEl;
+        });
+        cards.forEach((entry, name) => {
+          if (!seen.has(name)) {
+            entry.card.remove();
+            cards.delete(name);
+          }
+        });
+        layoutCards();
+      };
+
+      const setStatus = (el, state) => {
+        if (!el) return;
+        const nextClass = `status ${state}`;
+        if (el.className === nextClass && el.dataset?.state === state) {
+          return;
+        }
+        el.className = nextClass;
+        if (el.dataset) {
+          el.dataset.state = state;
+        }
+        const label = el.querySelector("span:not(.dot)");
+        if (label) {
+          if (state === "ok") label.textContent = t("status.stateActive");
+          else if (state === "fail") label.textContent = t("status.stateDown");
+          else if (state === "disabled") label.textContent = t("status.stateDisabled");
+          else label.textContent = t("status.stateChecking");
+        }
+      };
+
+      const recordTransition = (mod, nextState, activeUrl, serverDisabled) => {
+        const prevState = stateByModule.get(mod.name);
+        if (prevState === nextState) return;
+        stateByModule.set(mod.name, nextState);
+        if (nextState === "fail") {
+          pushLog({
+            id: `${mod.name}-${Date.now()}`,
+            ts: Date.now(),
+            level: "error",
+            module: mod.name,
+            messageKey: "status.logDown",
+            url: activeUrl || mod.url,
+          });
+        } else if (nextState === "disabled") {
+          pushLog({
+            id: `${mod.name}-${Date.now()}`,
+            ts: Date.now(),
+            level: "warn",
+            module: mod.name,
+            messageKey: serverDisabled ? "status.logDisabledServer" : "status.logDisabledLocal",
+            url: activeUrl || mod.url,
+          });
+        } else if (nextState === "ok" && prevState === "fail") {
+          pushLog({
+            id: `${mod.name}-${Date.now()}`,
+            ts: Date.now(),
+            level: "info",
+            module: mod.name,
+            messageKey: "status.logRecovered",
+            url: activeUrl || mod.url,
+          });
+        }
+      };
+
+      const loadModules = async () => {
+        if (MODULE_TTL_MS > 0 && moduleCache.data.length) {
+          if (Date.now() - moduleCache.ts < MODULE_TTL_MS) {
+            return moduleCache.data;
+          }
+        }
+        if (statusIsLocal) {
+          return localModules;
+        }
+        try {
+          const res = await fetch(importmapUrl, { cache: "no-store" });
+          const data = await res.json();
+          const imports = data.imports || {};
+          const next = Object.keys(imports).map((name) => ({ name, url: imports[name] }));
+          moduleCache = { ts: Date.now(), data: next };
+          return next;
+        } catch (err) {
+          console.warn("Failed to load importmap:", err);
+          return [];
+        }
+      };
+
+      let autoStartIndex = 0;
+      const CHUNK_SIZE = 25;
+      const MAX_CONCURRENT = 6;
+      const runCheck = async (options = {}) => {
+        const { chunked = false, offset = 0, force = false } = options;
+        if (force) {
+          moduleCache = { ts: 0, data: [] };
+        }
+        // Fetch modules and server disabled list in parallel
+        const [modules, serverDisabled] = await Promise.all([
+          loadModules(),
+          (async () => {
+            try {
+              const res = await fetch(toggleUrl, { cache: "no-store" });
+              if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.disabled)) {
+                  return new Set(data.disabled);
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to load server toggle:", err);
+            }
+            return new Set();
+          })(),
+        ]);
+        render(modules, serverDisabled);
+        const disabled = new Set([...readDisabled(), ...serverDisabled]);
+        const list = chunked ? modules.slice(offset, offset + CHUNK_SIZE) : modules;
+
+        // Set initial states immediately
+        list.forEach((mod) => {
+          mod.__state = disabled.has(mod.name) ? "disabled" : "pending";
+          setStatus(mod.__el, mod.__state);
+        });
+
+        // Split into modules that need checking vs already disabled
+        const toCheck = list.filter((mod) => !disabled.has(mod.name));
+        const statusEntries = [];
+
+        // Record disabled modules immediately (no fetch needed)
+        list.forEach((mod) => {
+          if (disabled.has(mod.name)) {
+            recordTransition(mod, "disabled", mod.url, serverDisabled.has(mod.name));
+            statusEntries.push([mod, false, mod.url]);
+          }
+        });
+
+        // Check active modules with concurrency limit and progressive rendering
+        if (toCheck.length > 0) {
+          let nextIdx = 0;
+          const runNext = async () => {
+            while (nextIdx < toCheck.length) {
+              const mod = toCheck[nextIdx++];
+              const result = await checkModuleUrl(mod);
+              const ok = result.ok;
+              mod.__state = ok ? "ok" : "fail";
+              // Update UI immediately for this module
+              setStatus(mod.__el, mod.__state);
+              recordTransition(mod, mod.__state, result.activeUrl, serverDisabled.has(mod.name));
+              if (ok && result.activeUrl && mod.__el && mod.__el.parentElement) {
+                const urlEl = mod.__el.parentElement.querySelector(".url");
+                if (urlEl) urlEl.textContent = result.activeUrl;
+              }
+              statusEntries.push([mod, ok, result.activeUrl]);
+            }
+          };
+          // Launch MAX_CONCURRENT workers
+          const workers = [];
+          for (let i = 0; i < Math.min(MAX_CONCURRENT, toCheck.length); i++) {
+            workers.push(runNext());
+          }
+          await Promise.all(workers);
+        }
+
+        layoutCards();
+        if (runningPortsEl) {
+          const ports = new Set();
+          statusEntries.forEach(([mod, ok, activeUrl]) => {
+            if (!ok) return;
+            const port = extractPort(activeUrl || mod.url);
+            if (port) ports.add(`${port}:${mod.name}`);
+          });
+          const list = Array.from(ports).sort();
+          lastRunningPorts = list;
+          renderRunningPorts(list);
+        }
+        if (disabledModulesEl) {
+          const list = Array.from(disabled).sort();
+          lastDisabledList = list;
+          renderDisabledModules(list);
+        }
+      };
+
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", async () => {
+          if (isRefreshing) return;
+          isRefreshing = true;
+          setRefreshLabel();
+          refreshBtn.setAttribute("data-loading", "true");
+          refreshBtn.disabled = true;
+          try {
+            await runCheck({ force: true });
+          } finally {
+            refreshBtn.disabled = false;
+            isRefreshing = false;
+            setRefreshLabel();
+            refreshBtn.removeAttribute("data-loading");
+          }
+        });
+      }
+      const applyToolbarState = () => {
+        searchQuery = moduleSearchInput?.value || "";
+        statusFilter = moduleFilterSelect?.value || "all";
+        sortMode = moduleSortSelect?.value || "name-asc";
+        groupEnabled = moduleGroupToggle ? moduleGroupToggle.checked : true;
+        if (modulePageSizeSelect) {
+          const value = modulePageSizeSelect.value;
+          pageSize = value === "all" ? Infinity : Math.max(1, parseInt(value, 10));
+        }
+        pageIndex = 0;
+        layoutCards();
+      };
+      if (moduleSearchInput) {
+        moduleSearchInput.addEventListener("input", applyToolbarState);
+      }
+      if (moduleFilterSelect) {
+        moduleFilterSelect.addEventListener("change", applyToolbarState);
+      }
+      if (moduleSortSelect) {
+        moduleSortSelect.addEventListener("change", applyToolbarState);
+      }
+      if (modulePageSizeSelect) {
+        modulePageSizeSelect.addEventListener("change", applyToolbarState);
+      }
+      if (moduleGroupToggle) {
+        moduleGroupToggle.addEventListener("change", applyToolbarState);
+      }
+      if (modulePagePrevBtn) {
+        modulePagePrevBtn.addEventListener("click", () => {
+          pageIndex = Math.max(0, pageIndex - 1);
+          layoutCards();
+        });
+      }
+      if (modulePageNextBtn) {
+        modulePageNextBtn.addEventListener("click", () => {
+          const pageCount = getPageCount(lastFilteredCount);
+          pageIndex = Math.min(pageCount - 1, pageIndex + 1);
+          layoutCards();
+        });
+      }
+      const scheduleAuto = () => {
+        if (!autoTimer) return;
+        const interval = document.hidden ? AUTO_INTERVAL_BG : AUTO_INTERVAL;
+        autoTimer = setTimeout(async () => {
+          const modules = await loadModules();
+          const nextOffset = autoStartIndex % Math.max(modules.length, 1);
+          autoStartIndex = nextOffset + CHUNK_SIZE;
+          await runCheck({ chunked: true, offset: nextOffset });
+          scheduleAuto();
+        }, interval);
+      };
+      if (statusIsProd) {
+        autoBtn.disabled = true;
+        setAutoLabel();
+      }
+      autoBtn.addEventListener("click", () => {
+        if (statusIsProd) return;
+        if (autoTimer) {
+          clearTimeout(autoTimer);
+          autoTimer = null;
+          setAutoLabel();
+          return;
+        }
+        runCheck();
+        autoTimer = setTimeout(() => {}, AUTO_INTERVAL);
+        setAutoLabel();
+        scheduleAuto();
+      });
+
+      const applyLocaleChange = (locale) => {
+        setLocale(locale);
+        setRefreshLabel();
+        setAutoLabel();
+        layoutCards();
+        renderRunningPorts(lastRunningPorts);
+        renderDisabledModules(lastDisabledList);
+        renderLogs();
+        cards.forEach((entry, name) => {
+          if (entry.modeLabel) {
+            entry.modeLabel.textContent = t("status.disabledModeLabel");
+          }
+          if (entry.modeSelect) {
+            Array.from(entry.modeSelect.options).forEach((opt) => {
+              const key = opt.dataset?.i18nKey;
+              if (key) {
+                opt.textContent = t(key);
+              }
+            });
+          }
+        });
+      };
+      applyLocaleChange(currentLocale);
+      window.addEventListener("app-locale-change", (event) => {
+        const detail = event?.detail || {};
+        if (detail.locale) {
+          applyLocaleChange(detail.locale);
+        }
+      });
+      window.addEventListener("storage", (event) => {
+        if (event.key === LOCALE_KEY) {
+          applyLocaleChange(event.newValue);
+        }
+        if (event.key === disabledModeKey) {
+          runCheck();
+        }
+      });
+
+      if (logFilterEl) {
+        logFilterEl.addEventListener("change", renderLogs);
+      }
+      if (logSearchEl) {
+        logSearchEl.addEventListener("input", () => {
+          if (logSearchTimer) {
+            clearTimeout(logSearchTimer);
+          }
+          logSearchTimer = setTimeout(() => {
+            logSearchTimer = null;
+            renderLogs();
+          }, 250);
+        });
+      }
+      if (logClearEl) {
+        logClearEl.addEventListener("click", () => {
+          logs = [];
+          saveLogs();
+          renderLogs();
+        });
+      }
+
+      const allowedOrigins = new Set(bridgeTargets.map((target) => target.origin));
+      window.addEventListener("message", (event) => {
+        if (!allowedOrigins.has(event.origin)) return;
+        const data = event.data || {};
+        if (data.type !== "mfe-error") return;
+        pushLog({
+          id: `${data.module || "module"}-${Date.now()}`,
+          ts: Date.now(),
+          level: data.level === "warn" ? "warn" : data.level === "info" ? "info" : "error",
+          module: data.module || data.name || "module",
+          messageKey: data.messageKey,
+          message: data.message || t("status.logRuntimeError"),
+          url: data.url,
+          detail: data.detail,
+        });
+      });
+      window.addEventListener("error", (event) => {
+        pushLog({
+          id: `status-${Date.now()}`,
+          ts: Date.now(),
+          level: "error",
+          module: "status",
+          messageKey: "status.logStatusError",
+          detail: event?.message,
+        });
+      });
+      window.addEventListener("unhandledrejection", (event) => {
+        pushLog({
+          id: `status-${Date.now()}`,
+          ts: Date.now(),
+          level: "error",
+          module: "status",
+          messageKey: "status.logUnhandledRejection",
+          detail: event?.reason?.message || String(event?.reason || ""),
+        });
+      });
+
+      loadLogs();
+      renderLogs();
+      // Defer bridge iframe creation until after the first check
+      // to avoid blocking initial module status checks with 12 iframe loads.
+      runCheck().then(() => {
+        ensureBridgeFrames();
+        broadcastDisabled();
+      });
+
+      const loadScript = (src) =>
+        new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[data-vanilla-status="true"]`);
+          if (existing) {
+            resolve();
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = src;
+          script.async = true;
+          script.dataset.vanillaStatus = "true";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("failed to load vanilla"));
+          document.body.appendChild(script);
+        });
+
+      const mountVanilla = async () => {
+        const root = document.getElementById("vanilla-status-root");
+        if (!root) return;
+        const url =
+          vanillaUrl ||
+          (await (async () => {
+            try {
+              const res = await fetch(importmapUrl, { cache: "no-store" });
+              const data = await res.json();
+              return data?.imports?.["@org/playground-vanilla"] || null;
+            } catch {
+              return null;
+            }
+          })());
+        const label = document.getElementById("vanilla-status-url");
+        if (label) {
+          label.textContent = url || t("status.notConfigured");
+        }
+        if (!url || !isSafeUrl(url)) return;
+        if (window.playgroundVanilla?.mount) {
+          window.playgroundVanilla.mount({ domElement: root });
+          return;
+        }
+        try {
+          await loadScript(url);
+          window.playgroundVanilla?.mount?.({ domElement: root });
+        } catch {
+          // ignore
+        }
+      };
+
+      mountVanilla();
+    </script>
+  </body>
+</html>
