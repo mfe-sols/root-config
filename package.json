@@ -4,6 +4,8 @@
   "description": "Single-spa root-config orchestrator — MFE shell",
   "private": true,
   "scripts": {
+    "postinstall": "node sync-ui-kit-css.js",
+    "sync-css": "node sync-ui-kit-css.js",
     "start": "webpack serve --port 9000 --env isLocal",
     "build": "concurrently pnpm:build:*",
     "build:webpack": "webpack --mode=production",
@@ -16,6 +18,7 @@
   "dependencies": {
     "@mfe-sols/auth": "^0.1.0",
     "@mfe-sols/i18n": "^0.1.0",
+    "@mfe-sols/ui-kit": "^0.1.1",
     "single-spa": "^5.9.3",
     "single-spa-layout": "^1.6.0"
   },
