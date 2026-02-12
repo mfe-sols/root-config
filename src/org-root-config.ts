@@ -79,7 +79,7 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
   || window.location.hostname.endsWith(".devtunnels.ms");
 
 /** Toggle endpoint: local uses same-origin API, non-local uses the shared API URL. */
-const PROD_TOGGLE_URL = "https://minimal-api-dev-t4.vercel.app/mfe-toggle.json";
+const PROD_TOGGLE_URL = "https://minimal-api-dev-t4.vercel.app/api/mfe-toggle";
 const toggleUrl = isLocalhost ? "/api/mfe-toggle" : PROD_TOGGLE_URL;
 const localAppUrls: Record<string, string> = {
   "@org/header-react": "http://localhost:9012/org-header-react.js",
