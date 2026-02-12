@@ -21,11 +21,7 @@
       margin: 0;
       max-width: 100%;
     }
-    /* FOUC guard – hide header content until Tailwind CSS has been injected.
-       The <style data-tailwind-global> is created in <head> by defineDesignSystem(),
-       which now runs at module-load time (before React renders).
-       Once that style exists the :has() selector matches and content is visible. */
-    html:not(:has(style[data-tailwind-global])) .mfe-shell-header:not(:empty):not([data-app-state="maintenance"]) {
+    html:not(:has(style[data-tailwind-global])) .mfe-shell-header:not([data-app-state="maintenance"]) {
       visibility: hidden;
     }
     .mfe-shell-header application {
