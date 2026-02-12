@@ -25,7 +25,7 @@
        The <style data-tailwind-global> is created in <head> by defineDesignSystem(),
        which now runs at module-load time (before React renders).
        Once that style exists the :has() selector matches and content is visible. */
-    html:not(:has(style[data-tailwind-global])) .mfe-shell-header:not(:empty) {
+    html:not(:has(style[data-tailwind-global])) .mfe-shell-header:not(:empty):not([data-app-state="maintenance"]) {
       visibility: hidden;
     }
     .mfe-shell-header application {
