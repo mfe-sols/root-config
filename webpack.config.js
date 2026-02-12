@@ -1,6 +1,7 @@
 const { merge } = require("webpack-merge");
 const singleSpaDefaults = require("webpack-config-single-spa-ts");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
 const path = require("path");
 const fs = require("fs");
@@ -111,6 +112,18 @@ module.exports = (webpackConfigEnv, argv) => {
           orgName,
           rootConfigCssVersion,
         },
+      }),
+      // Copy public/ assets into dist/ for production builds
+      new CopyPlugin({
+        patterns: [
+          {
+            from: "public",
+            to: ".",
+            globOptions: {
+              ignore: ["**/.DS_Store"],
+            },
+          },
+        ],
       }),
     ],
   });
