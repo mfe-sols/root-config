@@ -110,6 +110,63 @@ const readDisabledModeConfig = (): { default?: DisabledMode; apps: Record<string
   };
 };
 
+const writeDisabledModeConfig = (config: {
+  default?: DisabledMode;
+  apps: Record<string, DisabledMode>;
+}) => {
+  const normalized = normalizeDisabledModeConfig(config as DisabledModeConfig);
+  const payload = {
+    default: normalized.default === "placeholder" ? "placeholder" : "hide",
+    apps: normalized.apps,
+  };
+  try {
+    window.localStorage.setItem(DISABLED_MODE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const applyIncomingDisabledModeConfig = (value: unknown) => {
+  const normalized = normalizeDisabledModeConfig(
+    (typeof value === "object" && value !== null && !Array.isArray(value)) ||
+      value === "hide" ||
+      value === "placeholder"
+      ? (value as DisabledModeConfig)
+      : undefined
+  );
+  const current = readDisabledModeConfig();
+  const next = {
+    default: normalized.default ?? current.default,
+    apps: { ...current.apps, ...normalized.apps },
+  };
+  const currentKey = JSON.stringify({
+    default: current.default ?? "hide",
+    apps: current.apps,
+  });
+  const nextKey = JSON.stringify({
+    default: next.default ?? "hide",
+    apps: next.apps,
+  });
+  if (currentKey === nextKey) return;
+  writeDisabledModeConfig(next);
+};
+
+const applyIncomingDisabledModeForApp = (app: unknown, mode: unknown) => {
+  if (typeof app !== "string") return;
+  if (mode !== "hide" && mode !== "placeholder") return;
+  const current = readDisabledModeConfig();
+  const next = {
+    default: current.default ?? "hide",
+    apps: { ...current.apps },
+  };
+  if (mode === next.default) {
+    delete next.apps[app];
+  } else {
+    next.apps[app] = mode;
+  }
+  writeDisabledModeConfig(next);
+};
+
 const resolveDisabledMode = (app: string, el: HTMLElement): DisabledMode => {
   const attr = el.getAttribute("data-disabled-mode");
   if (attr === "hide" || attr === "placeholder") return attr;
@@ -668,8 +725,24 @@ export const initRootConfigShellUi = () => {
   try {
     const bc = new BroadcastChannel("mfe-disabled-sync");
     bc.onmessage = (event) => {
-      const data = event.data;
+      const data = event.data as
+        | {
+            type?: string;
+            disabled?: unknown;
+            disabledMode?: unknown;
+            app?: unknown;
+            mode?: unknown;
+          }
+        | null;
       if (!data || typeof data !== "object") return;
+      if (data.type === "mfe-disabled-mode") {
+        applyIncomingDisabledModeForApp(data.app, data.mode);
+      }
+      if (data.type === "mfe-toggle") {
+        if (Object.prototype.hasOwnProperty.call(data, "disabledMode")) {
+          applyIncomingDisabledModeConfig(data.disabledMode);
+        }
+      }
       if (data.type === "mfe-toggle" || data.type === "mfe-disabled-mode") {
         refreshAppElements();
         applyDisabledState(readDisabled());
@@ -696,8 +769,13 @@ export const initRootConfigShellUi = () => {
   });
 
   window.addEventListener("mfe-toggle", (event) => {
-    const detail = (event as CustomEvent<{ disabled?: DisabledList }>).detail;
+    const detail = (
+      event as CustomEvent<{ disabled?: DisabledList; disabledMode?: unknown }>
+    ).detail;
     if (!detail || !Array.isArray(detail.disabled)) return;
+    if (Object.prototype.hasOwnProperty.call(detail, "disabledMode")) {
+      applyIncomingDisabledModeConfig(detail.disabledMode);
+    }
     const safeDisabled = detail.disabled.filter(
       (item): item is string => typeof item === "string"
     );
