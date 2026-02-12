@@ -5,9 +5,11 @@
   "private": true,
   "scripts": {
     "postinstall": "node sync-ui-kit-css.js",
+    "prestart": "node sync-ui-kit-css.js",
     "sync-css": "node sync-ui-kit-css.js",
     "start": "webpack serve --port 9000 --env isLocal",
     "build": "concurrently pnpm:build:*",
+    "prebuild:webpack": "node sync-ui-kit-css.js",
     "build:webpack": "webpack --mode=production",
     "build:types": "tsc",
     "lint": "eslint src --ext js,ts,tsx",
