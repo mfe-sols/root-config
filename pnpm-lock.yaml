@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@mfe-sols/auth':
-        specifier: ^0.1.0
+        specifier: 0.1.0
         version: 0.1.0(@tanstack/query-core@5.90.20)
       '@mfe-sols/i18n':
-        specifier: ^0.1.0
+        specifier: 0.1.0
         version: 0.1.0
       '@mfe-sols/ui-kit':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: 0.1.3
+        version: 0.1.3
       single-spa:
         specifier: ^5.9.3
         version: 5.9.5

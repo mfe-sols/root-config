@@ -22,12 +22,12 @@ root-config (:9000)
 
 - Node.js >= 18
 - pnpm >= 8
-- GitHub Personal Access Token with `read:packages` scope
+- `GITHUB_TOKEN` with `read:packages` for GitHub Packages (`@mfe-sols/*`)
 
 ## Setup
 
 ```bash
-# 1. Configure GitHub Packages
+# 1. Export token for GitHub Packages
 export GITHUB_TOKEN=your_github_token
 
 # 2. Install dependencies
@@ -80,7 +80,7 @@ Sửa `public/importmap.prod.json`:
 
 ## Shared Libraries
 
-Root-config bundles 2 shared libs (không external):
+Root-config bundles 2 shared libs (not external):
 
 | Package | Usage |
 |---------|-------|
