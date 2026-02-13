@@ -1,7 +1,7 @@
 {
   "buildCommand": "pnpm run build:webpack",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install --no-frozen-lockfile",
+  "installCommand": "GITHUB_TOKEN=$NODE_AUTH_TOKEN pnpm install --no-frozen-lockfile",
   "rewrites": [
     { "source": "/mfe-toggle.json", "destination": "/api/mfe-toggle" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
