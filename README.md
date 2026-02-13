@@ -22,13 +22,13 @@ root-config (:9000)
 
 - Node.js >= 18
 - pnpm >= 8
-- `GITHUB_TOKEN` with `read:packages` for GitHub Packages (`@mfe-sols/*`)
+- `NODE_AUTH_TOKEN` with `read:packages` for GitHub Packages (`@mfe-sols/*`)
 
 ## Setup
 
 ```bash
 # 1. Export token for GitHub Packages
-export GITHUB_TOKEN=your_github_token
+export NODE_AUTH_TOKEN=your_github_token
 
 # 2. Install dependencies
 pnpm install
