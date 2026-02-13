@@ -117,6 +117,27 @@ Disable/enable modules at runtime via `POST /api/mfe-toggle`:
 
 Legacy clients that still call `/mfe-toggle.json` are internally rewritten to `/api/mfe-toggle` on Vercel.
 
+## Shared Maintenance Component
+
+Root-config registers a shared custom element: `mfe-maintenance-card`.
+
+All modules can reuse the same maintenance UI/behavior in shell mode:
+
+```html
+<mfe-maintenance-card
+  app="@org/catalog"
+  label="Maintenance"
+  detail="Catalog is temporarily paused."
+  status-path="/status.html"
+></mfe-maintenance-card>
+```
+
+Attributes:
+- `app` (required): app name in import-map format
+- `label` (optional): heading text
+- `detail` (optional): description text
+- `status-path` (optional): navigate target (default `/status.html`)
+
 ## Deploy
 
 ```bash
