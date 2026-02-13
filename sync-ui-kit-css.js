@@ -1,13 +1,17 @@
 /**
  * sync-ui-kit-css.js
  *
- * Đồng bộ ui-kit.css + root-config.css vào public/.
- * Ưu tiên source trong monorepo (libs/ui-kit/css), fallback sang package đã publish.
+ * Đồng bộ CSS shared từ ui-kit vào public/.
+ * Mặc định chỉ sync `ui-kit.css` để tránh ghi đè style riêng của root-config.
+ * Có thể bật sync `root-config.css` từ ui-kit bằng SYNC_ROOT_CONFIG_CSS=true khi cần migrate.
  */
 const fs = require("fs");
 const path = require("path");
 
-const CSS_FILES = ["ui-kit.css", "root-config.css"];
+const cssFiles = ["ui-kit.css"];
+if (process.env.SYNC_ROOT_CONFIG_CSS === "true") {
+  cssFiles.push("root-config.css");
+}
 const destDir = path.resolve(__dirname, "public");
 const sourceCandidates = [
   // Monorepo source of truth (preferred during development)
@@ -33,7 +37,7 @@ if (!fs.existsSync(destDir)) {
 
 console.log(`[sync-css] Source: ${srcDir}`);
 
-for (const file of CSS_FILES) {
+for (const file of cssFiles) {
   const src = path.join(srcDir, file);
   const dest = path.join(destDir, file);
   if (fs.existsSync(src)) {
@@ -42,4 +46,8 @@ for (const file of CSS_FILES) {
   } else {
     console.warn(`[sync-css] ${file} not found in @mfe-sols/ui-kit/css/`);
   }
+}
+
+if (process.env.SYNC_ROOT_CONFIG_CSS !== "true") {
+  console.log("[sync-css] Keeping public/root-config.css as app-owned stylesheet.");
 }

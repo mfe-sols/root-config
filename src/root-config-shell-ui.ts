@@ -197,38 +197,95 @@ const ensureBadge = (el: HTMLElement, className: string) => {
   return badge;
 };
 
+const formatMaintenanceTimestamp = () => {
+  const now = new Date();
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(now);
+  } catch {
+    return now.toLocaleTimeString();
+  }
+};
+
 const ensureMaintenancePanel = (el: HTMLElement, app: string, label?: string, detail?: string) => {
   let panel = el.querySelector<HTMLDivElement>(".app-maintenance");
   if (!panel) {
     panel = document.createElement("div");
     panel.className = "app-maintenance";
+    panel.setAttribute("role", "status");
+    panel.setAttribute("aria-live", "polite");
+    const head = document.createElement("div");
+    head.className = "app-maintenance__head";
+    const pill = document.createElement("span");
+    pill.className = "app-maintenance__pill";
+    const appTag = document.createElement("span");
+    appTag.className = "app-maintenance__app";
+    head.appendChild(pill);
+    head.appendChild(appTag);
+    const content = document.createElement("div");
+    content.className = "app-maintenance__content";
+    const icon = document.createElement("span");
+    icon.className = "app-maintenance__icon";
+    icon.textContent = "!";
+    icon.setAttribute("aria-hidden", "true");
+    const copy = document.createElement("div");
+    copy.className = "app-maintenance__copy";
     const title = document.createElement("div");
     title.className = "app-maintenance__title";
     const desc = document.createElement("div");
     desc.className = "app-maintenance__desc";
+    const meta = document.createElement("div");
+    meta.className = "app-maintenance__meta";
+    const time = document.createElement("div");
+    time.className = "app-maintenance__time";
     const actions = document.createElement("div");
     actions.className = "app-maintenance__actions";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "app-maintenance__btn";
     button.textContent = "Open status";
+    button.setAttribute("aria-label", "Open status page");
     button.addEventListener("click", () => {
       navigateToUrl("/status.html");
     });
+    copy.appendChild(title);
+    copy.appendChild(desc);
+    copy.appendChild(meta);
     actions.appendChild(button);
-    panel.appendChild(title);
-    panel.appendChild(desc);
-    panel.appendChild(actions);
+    content.appendChild(icon);
+    content.appendChild(copy);
+    content.appendChild(time);
+    content.appendChild(actions);
+    panel.appendChild(head);
+    panel.appendChild(content);
     el.appendChild(panel);
   }
+  const appTag = panel.querySelector<HTMLElement>(".app-maintenance__app");
+  const pill = panel.querySelector<HTMLElement>(".app-maintenance__pill");
   const title = panel.querySelector<HTMLElement>(".app-maintenance__title");
   const desc = panel.querySelector<HTMLElement>(".app-maintenance__desc");
+  const meta = panel.querySelector<HTMLElement>(".app-maintenance__meta");
+  const time = panel.querySelector<HTMLElement>(".app-maintenance__time");
+  const appTagText = `@${getAppName(app)}`;
+  if (pill) {
+    pill.textContent = "MAINTENANCE";
+  }
+  if (appTag) {
+    appTag.textContent = appTagText;
+  }
   if (title) {
     title.textContent = label || "Maintenance";
   }
   if (desc) {
-    desc.textContent =
-      detail || `@${getAppName(app)} is currently disabled. Please check status.`;
+    desc.textContent = detail || `${appTagText} is currently disabled. Please check status.`;
+  }
+  if (meta) {
+    meta.textContent = `Service paused: ${appTagText}`;
+  }
+  if (time) {
+    time.textContent = `Updated ${formatMaintenanceTimestamp()}`;
   }
 };
 

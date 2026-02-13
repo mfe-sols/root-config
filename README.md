@@ -87,6 +87,16 @@ Root-config bundles 2 shared libs (not external):
 | `@mfe-sols/auth` | Authentication, session sync |
 | `@mfe-sols/i18n` | Internationalization |
 
+## CSS Sync Strategy
+
+- `public/root-config.css` is app-owned (do not auto-overwrite from ui-kit).
+- `sync-ui-kit-css.js` only syncs `ui-kit.css` by default.
+- If you intentionally need to migrate `root-config.css` from ui-kit, run:
+
+```bash
+SYNC_ROOT_CONFIG_CSS=true node sync-ui-kit-css.js
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |

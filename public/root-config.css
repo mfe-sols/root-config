@@ -217,65 +217,125 @@
     .app-maintenance {
       display: none;
       width: 100%;
-      min-height: 188px;
-      border-radius: 18px;
-      padding: 22px;
+      min-height: 176px;
+      border-radius: 20px;
+      padding: 18px;
       background:
-        radial-gradient(120% 120% at 0% 0%, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0) 54%),
-        linear-gradient(135deg, #fff9ee 0%, #ffffff 42%, #fff6e6 100%);
-      border: 1px solid rgba(245, 158, 11, 0.32);
+        radial-gradient(140% 130% at 0% 0%, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0) 58%),
+        linear-gradient(138deg, #fffbf2 0%, #ffffff 48%, #fff4dc 100%);
+      border: 1px solid rgba(217, 119, 6, 0.34);
       color: #1f2937;
       position: relative;
+      overflow: hidden;
       z-index: 1;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.65),
-        0 12px 28px rgba(15, 23, 42, 0.1);
-      gap: 10px;
-      align-content: center;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 16px 30px rgba(30, 41, 59, 0.12);
+      gap: 14px;
       text-align: left;
     }
     .app-maintenance::before {
-      content: "MAINTENANCE";
-      display: inline-flex;
-      justify-self: start;
-      width: fit-content;
-      margin-bottom: 2px;
-      padding: 4px 10px;
+      content: "";
+      position: absolute;
+      right: -34px;
+      top: -34px;
+      width: 130px;
+      height: 130px;
       border-radius: 999px;
-      border: 1px solid rgba(245, 158, 11, 0.34);
-      background: rgba(245, 158, 11, 0.12);
-      color: #9a3412;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.07em;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.25), rgba(245, 158, 11, 0));
+      pointer-events: none;
     }
     [data-app-state="maintenance"] .app-maintenance {
       display: grid;
     }
+    .app-maintenance__head {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .app-maintenance__pill,
+    .app-maintenance__app {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+    }
+    .app-maintenance__pill {
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #9a3412;
+    }
+    .app-maintenance__app {
+      background: rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      color: #334155;
+      letter-spacing: 0.05em;
+      text-transform: none;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+    }
+    .app-maintenance__content {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 12px;
+    }
+    .app-maintenance__icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #f59e0b, #d97706);
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(217, 119, 6, 0.35);
+    }
+    .app-maintenance__copy {
+      min-width: 0;
+    }
     .app-maintenance__title {
       font-weight: 700;
-      font-size: 17px;
-      color: #9a3412;
-      line-height: 1.25;
+      font-size: 16px;
+      color: #7c2d12;
+      line-height: 1.2;
     }
     .app-maintenance__desc {
       font-size: 13px;
       line-height: 1.5;
       color: #475569;
+      margin-top: 3px;
+    }
+    .app-maintenance__meta {
+      font-size: 12px;
+      color: #9a3412;
+      opacity: 0.8;
+      margin-top: 6px;
+    }
+    .app-maintenance__time {
+      font-size: 12px;
+      color: #7c2d12;
+      white-space: nowrap;
+      justify-self: end;
     }
     .app-maintenance__actions {
-      margin-top: 6px;
       justify-self: end;
     }
     .app-maintenance__btn {
-      border: 1px solid rgba(15, 23, 42, 0.14);
+      border: 1px solid rgba(217, 119, 6, 0.3);
       border-radius: 999px;
-      padding: 9px 14px;
+      padding: 9px 16px;
       font-size: 12px;
       font-weight: 600;
-      background: linear-gradient(180deg, #1f2937, #111827);
+      background: linear-gradient(180deg, #111827, #1f2937);
       color: #ffffff;
       cursor: pointer;
       transition: transform 140ms ease, box-shadow 140ms ease;
@@ -292,18 +352,80 @@
       display: none;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance {
-      min-height: 96px;
-      border-radius: 14px;
-      padding: 14px 16px;
-      gap: 8px;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
+      min-height: 102px;
+      border-radius: 16px;
+      padding: 12px 14px;
+      gap: 10px;
+    }
+    .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__content {
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 10px;
+    }
+    .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      font-size: 18px;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__title {
       font-size: 15px;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__desc {
       font-size: 12px;
+    }
+    .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__meta {
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__btn {
+      padding: 8px 14px;
+    }
+    @media (max-width: 900px) {
+      .app-maintenance__content {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+      }
+      .app-maintenance__time {
+        justify-self: start;
+      }
+      .app-maintenance__actions {
+        justify-self: start;
+      }
+      .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__content {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+    }
+    @media (max-width: 640px) {
+      .app-maintenance {
+        border-radius: 16px;
+        min-height: 0;
+        padding: 14px;
+      }
+      .app-maintenance__head {
+        gap: 6px;
+      }
+      .app-maintenance__pill,
+      .app-maintenance__app {
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+      .app-maintenance__icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        font-size: 17px;
+      }
+      .app-maintenance__title {
+        font-size: 14px;
+      }
+      .app-maintenance__desc,
+      .app-maintenance__meta,
+      .app-maintenance__time {
+        font-size: 11px;
+      }
+      .app-maintenance__btn {
+        padding: 8px 12px;
+      }
     }
     .mfe-app-card {
       position: relative;
@@ -493,24 +615,40 @@
     }
     [data-theme="dark"] .app-maintenance {
       background:
-        radial-gradient(130% 120% at 0% 0%, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0) 58%),
-        linear-gradient(145deg, #111827 0%, #0f172a 52%, #1f2937 100%);
-      border-color: rgba(251, 191, 36, 0.4);
+        radial-gradient(130% 120% at 0% 0%, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0) 58%),
+        linear-gradient(145deg, #1e1b16 0%, #0f172a 52%, #1f2937 100%);
+      border-color: rgba(245, 158, 11, 0.45);
       color: #e5e7eb;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
         0 14px 30px rgba(0, 0, 0, 0.4);
     }
     [data-theme="dark"] .app-maintenance::before {
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.35), rgba(245, 158, 11, 0));
+    }
+    [data-theme="dark"] .app-maintenance__pill {
       color: #fbbf24;
-      background: rgba(251, 191, 36, 0.15);
-      border-color: rgba(251, 191, 36, 0.4);
+      background: rgba(251, 191, 36, 0.18);
+      border-color: rgba(251, 191, 36, 0.42);
+    }
+    [data-theme="dark"] .app-maintenance__app {
+      color: #e2e8f0;
+      background: rgba(148, 163, 184, 0.14);
+      border-color: rgba(148, 163, 184, 0.32);
+    }
+    [data-theme="dark"] .app-maintenance__icon {
+      background: linear-gradient(180deg, #f59e0b, #b45309);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.5);
     }
     [data-theme="dark"] .app-maintenance__title {
-      color: #f59e0b;
+      color: #fbbf24;
     }
     [data-theme="dark"] .app-maintenance__desc {
-      color: #cbd5e1;
+      color: #d6deea;
+    }
+    [data-theme="dark"] .app-maintenance__meta,
+    [data-theme="dark"] .app-maintenance__time {
+      color: #fcd34d;
     }
     [data-theme="dark"] .app-maintenance__btn {
       background: linear-gradient(180deg, #334155, #1f2937);
