@@ -1022,18 +1022,38 @@
       };
 
       /** Sync disabled list + display mode to server so all devices read same behavior. */
-      const syncToggleToServer = (disabledSet, modeConfig = readDisabledModeConfig()) => {
+      const syncToggleToServer = async (disabledSet, modeConfig = readDisabledModeConfig()) => {
+        const normalizedDisabled = Array.from(disabledSet).filter(
+          (name) => typeof name === "string"
+        );
         const normalizedMode = normalizeDisabledModeConfig(modeConfig);
-        fetch(toggleUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            disabled: Array.from(disabledSet),
-            disabledMode: normalizedMode,
-          }),
-        }).catch((err) => {
+        try {
+          const res = await fetch(toggleUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              disabled: normalizedDisabled,
+              disabledMode: normalizedMode,
+            }),
+          });
+          if (!res.ok) {
+            return null;
+          }
+          const data = await res.json().catch(() => null);
+          if (!data || typeof data !== "object" || Array.isArray(data)) {
+            return new Set(normalizedDisabled);
+          }
+          if (Object.prototype.hasOwnProperty.call(data, "disabledMode")) {
+            applyServerDisabledModeConfig(data.disabledMode);
+          }
+          if (Array.isArray(data.disabled)) {
+            return new Set(data.disabled.filter((name) => typeof name === "string"));
+          }
+          return new Set(normalizedDisabled);
+        } catch (err) {
           console.warn("[status] Failed to sync toggle to server:", err);
-        });
+          return null;
+        }
       };
 
       const resolveDisabledMode = (name) => {
@@ -1070,8 +1090,8 @@
         createNext();
       };
 
-      const broadcastDisabled = () => {
-        const disabled = Array.from(readDisabled());
+      const broadcastDisabled = (disabledSet = readDisabled()) => {
+        const disabled = Array.from(disabledSet).filter((name) => typeof name === "string");
         // Notify root-config tab via BroadcastChannel for immediate cross-tab sync.
         // Works on both localhost and production — essential for status.html ↔ home tab.
         try {
@@ -1318,6 +1338,7 @@
 
       const cards = new Map();
       let currentModules = [];
+      let latestServerDisabled = new Set();
       let searchQuery = "";
       let statusFilter = "all";
       let sortMode = "name-asc";
@@ -1606,7 +1627,7 @@
                 next.apps[mod.name] = nextMode;
               }
               writeDisabledModeConfig(next);
-              syncToggleToServer(new Set([...readDisabled(), ...serverDisabled]), next);
+              void syncToggleToServer(new Set([...readDisabled(), ...latestServerDisabled]), next);
               // Notify root-config tab of display mode change
               try {
                 const bc = new BroadcastChannel("mfe-disabled-sync");
@@ -1618,18 +1639,36 @@
             });
             modeRow.appendChild(modeLabel);
             modeRow.appendChild(modeSelect);
-            toggle.addEventListener("click", () => {
+            toggle.addEventListener("click", async () => {
+              if (toggle.disabled) return;
+              toggle.disabled = true;
               // Merge local + server disabled into one set
-              const disabledSet = new Set([...readDisabled(), ...serverDisabled]);
+              const disabledSet = new Set([...readDisabled(), ...latestServerDisabled]);
               if (disabledSet.has(mod.name)) {
                 disabledSet.delete(mod.name);
               } else {
                 disabledSet.add(mod.name);
               }
               writeDisabled(disabledSet);
-              syncToggleToServer(disabledSet);
-              broadcastDisabled();
-              runCheck();
+              mod.__state = disabledSet.has(mod.name) ? "disabled" : "pending";
+              setStatus(mod.__el, mod.__state);
+              toggle.textContent = disabledSet.has(mod.name)
+                ? t("status.cardEnable")
+                : t("status.cardDisable");
+              const optimisticDisabled = Array.from(disabledSet).sort();
+              lastDisabledList = optimisticDisabled;
+              renderDisabledModules(optimisticDisabled);
+              broadcastDisabled(disabledSet);
+              try {
+                const synced = await syncToggleToServer(disabledSet);
+                const effectiveServerDisabled = synced || disabledSet;
+                latestServerDisabled = new Set(effectiveServerDisabled);
+                writeDisabled(effectiveServerDisabled);
+                broadcastDisabled(effectiveServerDisabled);
+                await runCheck({ serverDisabledOverride: latestServerDisabled });
+              } finally {
+                toggle.disabled = false;
+              }
             });
             card.appendChild(nameEl);
             card.appendChild(urlEl);
@@ -1749,33 +1788,47 @@
       const CHUNK_SIZE = 25;
       const MAX_CONCURRENT = 6;
       const runCheck = async (options = {}) => {
-        const { chunked = false, offset = 0, force = false } = options;
+        const {
+          chunked = false,
+          offset = 0,
+          force = false,
+          serverDisabledOverride = null,
+        } = options;
         if (force) {
           moduleCache = { ts: 0, data: [] };
         }
+        const resolvedOverride =
+          serverDisabledOverride instanceof Set
+            ? new Set(serverDisabledOverride)
+            : Array.isArray(serverDisabledOverride)
+            ? new Set(serverDisabledOverride.filter((name) => typeof name === "string"))
+            : null;
         // Fetch modules and server disabled list in parallel
         const [modules, serverDisabled] = await Promise.all([
           loadModules(),
-          (async () => {
-            try {
-              const res = await fetch(toggleUrl, { cache: "no-store" });
-              if (res.ok) {
-                const data = await res.json();
-                if (data && typeof data === "object" && !Array.isArray(data)) {
-                  if (Object.prototype.hasOwnProperty.call(data, "disabledMode")) {
-                    applyServerDisabledModeConfig(data.disabledMode);
+          resolvedOverride
+            ? Promise.resolve(resolvedOverride)
+            : (async () => {
+                try {
+                  const res = await fetch(toggleUrl, { cache: "no-store" });
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data === "object" && !Array.isArray(data)) {
+                      if (Object.prototype.hasOwnProperty.call(data, "disabledMode")) {
+                        applyServerDisabledModeConfig(data.disabledMode);
+                      }
+                    }
+                    if (Array.isArray(data.disabled)) {
+                      return new Set(data.disabled);
+                    }
                   }
+                } catch (err) {
+                  console.warn("Failed to load server toggle:", err);
                 }
-                if (Array.isArray(data.disabled)) {
-                  return new Set(data.disabled);
-                }
-              }
-            } catch (err) {
-              console.warn("Failed to load server toggle:", err);
-            }
-            return new Set();
-          })(),
+                return new Set();
+              })(),
         ]);
+        latestServerDisabled = new Set(serverDisabled);
         render(modules, serverDisabled);
         const disabled = new Set([...readDisabled(), ...serverDisabled]);
         const list = chunked ? modules.slice(offset, offset + CHUNK_SIZE) : modules;
