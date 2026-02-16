@@ -295,7 +295,6 @@
     .app-maintenance {
       display: none;
       width: 100%;
-      min-height: 176px;
       border-radius: 20px;
       padding: 18px;
       background:
@@ -360,11 +359,16 @@
     }
     .app-maintenance__content {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      align-items: center;
-      gap: 12px;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "icon copy time"
+        "icon copy actions";
+      align-items: start;
+      column-gap: 12px;
+      row-gap: 8px;
     }
     .app-maintenance__icon {
+      grid-area: icon;
       width: 38px;
       height: 38px;
       border-radius: 12px;
@@ -378,6 +382,7 @@
       box-shadow: 0 8px 18px rgba(217, 119, 6, 0.35);
     }
     .app-maintenance__copy {
+      grid-area: copy;
       min-width: 0;
     }
     .app-maintenance__title {
@@ -399,12 +404,15 @@
       margin-top: 6px;
     }
     .app-maintenance__time {
+      grid-area: time;
       font-size: 12px;
       color: #7c2d12;
       white-space: nowrap;
       justify-self: end;
+      align-self: end;
     }
     .app-maintenance__actions {
+      grid-area: actions;
       justify-self: end;
     }
     .app-maintenance__btn {
@@ -430,14 +438,13 @@
       display: none;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance {
-      min-height: 102px;
       border-radius: 16px;
       padding: 12px 14px;
       gap: 10px;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__content {
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      gap: 10px;
+      column-gap: 10px;
+      row-gap: 6px;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__icon {
       width: 34px;
@@ -461,16 +468,18 @@
     @media (max-width: 900px) {
       .app-maintenance__content {
         grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          "icon copy"
+          "time time"
+          "actions actions";
         align-items: start;
       }
       .app-maintenance__time {
         justify-self: start;
+        align-self: start;
       }
       .app-maintenance__actions {
         justify-self: start;
-      }
-      .mfe-shell-header[data-app-state="maintenance"] .app-maintenance__content {
-        grid-template-columns: auto minmax(0, 1fr);
       }
     }
     @media (max-width: 640px) {
