@@ -6,11 +6,17 @@ const webpack = require("webpack");
 const path = require("path");
 const fs = require("fs");
 
-// Load .env from project root
-require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+// Load shared workspace .env first, then app-local .env (if any) to override.
+require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
+require("dotenv").config({
+  path: path.resolve(__dirname, ".env"),
+  override: true,
+});
 
 module.exports = (webpackConfigEnv, argv) => {
   const orgName = "org";
+  const apiProxyTarget =
+    process.env.AUTH_BASE_URL || process.env.API_BASE_URL || "";
   const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
   const uiKitCssPath = path.resolve(__dirname, "public/ui-kit.css");
   const rootConfigCssVersion = (() => {
@@ -93,6 +99,22 @@ module.exports = (webpackConfigEnv, argv) => {
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
       },
+      ...(apiProxyTarget
+        ? {
+            proxy: {
+              "/api/auth": {
+                target: apiProxyTarget,
+                changeOrigin: true,
+                secure: false,
+              },
+              "/api/mfe-toggle": {
+                target: apiProxyTarget,
+                changeOrigin: true,
+                secure: false,
+              },
+            },
+          }
+        : {}),
     },
     plugins: [
       new webpack.DefinePlugin({
