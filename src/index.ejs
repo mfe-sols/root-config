@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>System Platform</title>
+  <script>
+    document.documentElement.classList.add("mfe-shell-booting");
+  </script>
   <meta name="importmap-type" use-injector />
   <!-- If you wish to turn off import-map-overrides for specific environments (prod), uncomment the line below -->
   <!-- More info at https://github.com/single-spa/import-map-overrides/blob/main/docs/configuration.md#domain-list -->
@@ -92,6 +95,16 @@
   <noscript>
     You need to enable JavaScript to run this app.
   </noscript>
+  <div
+    id="mfe-shell-loader"
+    class="mfe-shell-loader"
+    role="status"
+    aria-live="polite"
+    aria-label="Loading system"
+  >
+    <div class="mfe-shell-loader__spinner" aria-hidden="true"></div>
+    <span class="mfe-shell-loader__sr">Loading system</span>
+  </div>
   <div class="mfe-float-buttons" id="mfe-float-buttons" aria-label="Quick controls">
     <div class="mfe-float-actions" id="mfe-float-actions" aria-hidden="true">
       <button
@@ -222,11 +235,43 @@
   </aside>
   <script>
     (function () {
+      var root = document.documentElement;
+      var loaderEl = document.getElementById("mfe-shell-loader");
+      var loaderTimeoutId = 0;
+      var loaderClosed = false;
+
+      function hideLoader() {
+        if (loaderClosed) return;
+        loaderClosed = true;
+        if (loaderTimeoutId) {
+          window.clearTimeout(loaderTimeoutId);
+          loaderTimeoutId = 0;
+        }
+        root.classList.remove("mfe-shell-booting");
+        if (!loaderEl) return;
+        loaderEl.classList.add("is-hidden");
+        window.setTimeout(function () {
+          if (loaderEl && loaderEl.parentNode) {
+            loaderEl.parentNode.removeChild(loaderEl);
+          }
+        }, 320);
+      }
+
+      loaderTimeoutId = window.setTimeout(hideLoader, 8000);
+      window.addEventListener("single-spa:first-mount", hideLoader, { once: true });
+      window.addEventListener("single-spa:app-change", hideLoader, { once: true });
+
       function importRootConfig() {
         if (window.System && window.System.import) {
-          return window.System.import('@org/root-config');
+          return window.System.import('@org/root-config').catch(function (error) {
+            hideLoader();
+            throw error;
+          });
         }
-        return import('@org/root-config');
+        return import('@org/root-config').catch(function (error) {
+          hideLoader();
+          throw error;
+        });
       }
       function start() {
         if (window.importMapInjector && window.importMapInjector.initPromise) {
