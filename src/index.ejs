@@ -32,6 +32,7 @@
     {
       "imports": {
         "@org/header-react": "//localhost:9012/org-header-react.js?v=<%= rootConfigCssVersion || '' %>",
+        "@org/footer-react": "//localhost:9013/org-footer-react.js?v=<%= rootConfigCssVersion || '' %>",
         "@org/catalog": "//localhost:9001/org-catalog.js",
         "@org/profile-vue": "//localhost:9002/profile-vue.js",
         "@org/playground-react": "//localhost:9007/org-playground.js",
@@ -51,6 +52,7 @@
       "imports": {
         "@org/root-config": "//localhost:9000/org-root-config.js",
         "@org/header-react": "//localhost:9012/org-header-react.js?v=<%= rootConfigCssVersion || '' %>",
+        "@org/footer-react": "//localhost:9013/org-footer-react.js?v=<%= rootConfigCssVersion || '' %>",
         "@org/catalog": "//localhost:9001/org-catalog.js",
         "@org/profile-vue": "//localhost:9002/profile-vue.js",
         "@org/playground-react": "//localhost:9007/org-playground.js",
@@ -90,16 +92,83 @@
   <noscript>
     You need to enable JavaScript to run this app.
   </noscript>
-  <button class="ds-theme-toggle" id="ds-theme-toggle" data-i18n="toggleTheme">Toggle theme</button>
+  <div class="mfe-float-buttons" id="mfe-float-buttons" aria-label="Quick controls">
+    <div class="mfe-float-actions" id="mfe-float-actions" aria-hidden="true">
+      <button
+        class="mfe-playgrounds-fab ds-fab-control"
+        id="mfe-playgrounds-fab"
+        type="button"
+        aria-label="Toggle playground drawer"
+        title="Playgrounds"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.6"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.6"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.6"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.6"></rect>
+        </svg>
+      </button>
+      <button
+        class="mfe-perf-fab ds-fab-control"
+        id="mfe-perf-fab"
+        type="button"
+        aria-label="Toggle performance panel"
+        title="Performance"
+      >
+        📊
+      </button>
+      <button
+        type="button"
+        class="ds-locale-toggle ds-fab-control"
+        id="ds-locale-toggle"
+        aria-label="Toggle language"
+        title="Toggle language"
+      >
+        EN
+      </button>
+      <button
+        class="ds-theme-toggle ds-fab-control"
+        id="ds-theme-toggle"
+        type="button"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+      >
+        🌙
+      </button>
+      <button
+        class="ds-primary-color-btn ds-fab-control ds-fab-control--keep-open"
+        id="ds-primary-color-btn"
+        type="button"
+        aria-label="Change primary color"
+        title="Change primary color"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+          <path d="M8.5 15.5 4.9 11.9a2.8 2.8 0 1 1 4-4l3.6 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M14.2 9.8 19.1 5a2.8 2.8 0 1 1 4 4l-4.8 4.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="m10.9 13.1 4 4a2.8 2.8 0 1 1-4 4l-4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="18.8" cy="18.8" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+      <input
+        id="ds-primary-color-input"
+        class="ds-primary-color-input"
+        type="color"
+        value="#0f766e"
+        aria-label="Primary color picker"
+      />
+    </div>
     <button
-    class="mfe-perf-fab"
-    id="mfe-perf-fab"
-    type="button"
-    aria-label="Toggle performance panel"
-    style="position: fixed; right: 16px; bottom: 112px; z-index: 10001;"
-  >
-    📊
-  </button>
+      class="mfe-float-toggle ds-fab-control"
+      id="mfe-float-toggle"
+      type="button"
+      aria-label="Open quick controls"
+      aria-expanded="false"
+      aria-controls="mfe-float-actions"
+      title="Open quick controls"
+    >
+      •••
+    </button>
+  </div>
 
    <section class="mfe-perf-panel" id="mfe-perf-panel">
     <div class="mfe-perf-header flex items-center justify-between gap-2">
@@ -116,10 +185,41 @@
       </div>
     </div>
   </section>
-  <div class="ds-locale-toggle" id="ds-locale-toggle">
-    <button type="button" class="ds-locale-toggle__btn" data-locale="en">EN</button>
-    <button type="button" class="ds-locale-toggle__btn" data-locale="vi">VI</button>
-  </div>
+  <div class="mfe-playgrounds-backdrop" id="mfe-playgrounds-backdrop" aria-hidden="true"></div>
+  <aside
+    class="mfe-playgrounds-drawer mfe-app-card"
+    id="mfe-playgrounds-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-label="Playgrounds quick links"
+  >
+    <div class="mfe-app-card__header">
+      <div class="mfe-app-card__title" data-i18n="playgroundsTitle">Playgrounds</div>
+      <div class="mfe-playgrounds-drawer-actions">
+        <div class="mfe-app-card__meta" data-i18n="playgroundsMeta">Quick links</div>
+        <button
+          type="button"
+          class="mfe-playgrounds-close"
+          id="mfe-playgrounds-close"
+          aria-label="Close playground drawer"
+          title="Close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="mfe-app-card__body">
+      <div class="mfe-playground-links">
+        <a class="mfe-playground-link" href="/playground-angular" data-app-link="@org/playground-angular" data-i18n="playgroundAngular">Angular Playground</a>
+        <a class="mfe-playground-link" href="/playground-react" data-app-link="@org/playground-react" data-i18n="playgroundReact">React Playground</a>
+        <a class="mfe-playground-link" href="/playground-vue" data-app-link="@org/playground-vue" data-i18n="playgroundVue">Vue Playground</a>
+        <a class="mfe-playground-link" href="/playground-vanilla" data-app-link="@org/playground-vanilla" data-i18n="playgroundVanilla">Vanilla Playground</a>
+        <a class="mfe-playground-link" href="/playground-svelte" data-app-link="@org/playground-svelte" data-i18n="playgroundSvelte">Svelte Playground</a>
+        <a class="mfe-playground-link" href="/auth/login" data-app-link="@org/auth-angular">Auth (Login)</a>
+      </div>
+    </div>
+  </aside>
   <script>
     (function () {
       function importRootConfig() {

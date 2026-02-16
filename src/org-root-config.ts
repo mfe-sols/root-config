@@ -82,6 +82,7 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
 const toggleUrl = "/api/mfe-toggle";
 const localAppUrls: Record<string, string> = {
   "@org/header-react": "http://localhost:9012/org-header-react.js",
+  "@org/footer-react": "http://localhost:9013/org-footer-react.js",
   "@org/catalog": "http://localhost:9001/org-catalog.js",
   "@org/profile-vue": "http://localhost:9002/profile-vue.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
@@ -561,6 +562,7 @@ const microfrontendLayout = applyLayoutSection(
 const routes = constructRoutes(microfrontendLayout);
 const systemFirstApps = new Set<string>([
   "@org/header-react",
+  "@org/footer-react",
   "@org/catalog",
   "@org/playground-react",
   "@org/checkout-angular",
@@ -783,30 +785,36 @@ const bootstrap = () => {
   window.addEventListener("popstate", setTitleForPath);
   setTitleForPath();
 
-  const localeButtons = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(".ds-locale-toggle__btn")
-  );
-  const applyLocaleButtons = (locale: Locale) => {
-    localeButtons.forEach((btn) => {
-      const value = btn.getAttribute("data-locale") as Locale | null;
-      btn.setAttribute("data-active", value === locale ? "true" : "false");
-    });
+  const localeToggleButton = document.getElementById("ds-locale-toggle") as HTMLButtonElement | null;
+  const getNextLocale = (locale: Locale): Locale => (locale === "en" ? "vi" : "en");
+  const applyLocaleToggleButton = (locale: Locale) => {
+    if (!localeToggleButton) return;
+    const nextLocale = getNextLocale(locale);
+    const label =
+      nextLocale === "vi"
+        ? "Switch language to Vietnamese"
+        : "Chuyển ngôn ngữ sang tiếng Anh";
+    localeToggleButton.textContent = locale.toUpperCase();
+    localeToggleButton.setAttribute("data-locale-current", locale);
+    localeToggleButton.setAttribute("data-locale-next", nextLocale);
+    localeToggleButton.setAttribute("aria-label", label);
+    localeToggleButton.setAttribute("title", label);
   };
   const applyLocale = (locale: Locale) => {
     setLocale(locale);
     document.documentElement.setAttribute("lang", locale);
-    applyLocaleButtons(locale);
+    applyLocaleToggleButton(locale);
     applyI18nToDom(document);
   };
   const initialLocale = initI18nFromStorage();
   applyLocale(initialLocale);
-  document.getElementById("ds-locale-toggle")?.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-    const value = target.getAttribute("data-locale") as Locale | null;
-    if (!value) return;
-    setStoredLocale(value, true);
-    applyLocale(value);
+  localeToggleButton?.addEventListener("click", () => {
+    const currentLocale =
+      (localeToggleButton.getAttribute("data-locale-current") as Locale | null) ||
+      getStoredLocale();
+    const nextLocale = getNextLocale(currentLocale);
+    setStoredLocale(nextLocale, true);
+    applyLocale(nextLocale);
   });
   window.addEventListener("app-locale-change", (event) => {
     const detail = (event as CustomEvent<{ locale?: Locale }>).detail;

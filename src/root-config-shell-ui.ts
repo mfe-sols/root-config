@@ -32,6 +32,7 @@ const isSafeUrl = (url: string): boolean => {
 
 const shellInitFlag = "__rootConfigShellUiInit";
 const DISABLED_MODE_KEY = "mfe-disabled-mode";
+const PRIMARY_COLOR_KEY = "ds-primary-color";
 
 const AUTH_REQUIRED_APPS = new Set([
   "@org/playground-angular",
@@ -74,6 +75,7 @@ type DisabledModeConfig =
 
 const DEFAULT_DISABLED_MODE_BY_APP: Partial<Record<string, DisabledMode>> = {
   "@org/header-react": "placeholder",
+  "@org/footer-react": "placeholder",
 };
 
 const getFallbackDisabledMode = (app: string, defaultMode?: DisabledMode): DisabledMode => {
@@ -299,6 +301,88 @@ const isTrustedOrigin = (origin: string) => {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(origin);
 };
 
+const isBlockedHrefProtocol = (href: string) =>
+  /^(javascript|data|vbscript|file):/i.test(href.trim()) || href.trim().startsWith("//");
+
+const toSafeInternalHref = (href: string, fallback = "/") => {
+  const next = href.trim();
+  if (!next || isBlockedHrefProtocol(next)) return fallback;
+  try {
+    const resolved = new URL(next, window.location.origin);
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
+      return fallback;
+    }
+    if (resolved.origin !== window.location.origin) {
+      return fallback;
+    }
+    return `${resolved.pathname}${resolved.search}${resolved.hash}` || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeHexColor = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const next = value.trim();
+  const short = /^#([0-9a-f]{3})$/i.exec(next);
+  if (short) {
+    const [r, g, b] = short[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  const long = /^#([0-9a-f]{6})$/i.exec(next);
+  if (!long) return null;
+  return `#${long[1].toLowerCase()}`;
+};
+
+const hexToRgb = (hex: string) => {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return null;
+  const raw = normalized.slice(1);
+  return {
+    r: Number.parseInt(raw.slice(0, 2), 16),
+    g: Number.parseInt(raw.slice(2, 4), 16),
+    b: Number.parseInt(raw.slice(4, 6), 16),
+  };
+};
+
+const rgbToHex = (r: number, g: number, b: number) =>
+  `#${[r, g, b]
+    .map((n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0"))
+    .join("")}`;
+
+const mixHex = (sourceHex: string, targetHex: string, weight: number) => {
+  const source = hexToRgb(sourceHex);
+  const target = hexToRgb(targetHex);
+  if (!source || !target) return sourceHex;
+  const w = Math.max(0, Math.min(1, weight));
+  return rgbToHex(
+    source.r * (1 - w) + target.r * w,
+    source.g * (1 - w) + target.g * w,
+    source.b * (1 - w) + target.b * w
+  );
+};
+
+type PrimaryPalette = {
+  100: string;
+  500: string;
+  700: string;
+};
+
+const buildLightPrimaryPalette = (baseHex: string): PrimaryPalette => ({
+  100: mixHex(baseHex, "#ffffff", 0.82),
+  500: baseHex,
+  700: mixHex(baseHex, "#000000", 0.22),
+});
+
+const buildDarkPrimaryPalette = (baseHex: string): PrimaryPalette => {
+  const dark500 = mixHex(baseHex, "#ffffff", 0.24);
+  return {
+    100: mixHex(baseHex, "#000000", 0.62),
+    500: dark500,
+    700: mixHex(dark500, "#000000", 0.12),
+  };
+};
+
 export const initRootConfigShellUi = () => {
   if (typeof window === "undefined") return;
   if ((window as any)[shellInitFlag]) return;
@@ -306,7 +390,14 @@ export const initRootConfigShellUi = () => {
   defineMaintenanceCardElement();
 
   const UI = {
+    floatButtons: document.getElementById("mfe-float-buttons") as HTMLDivElement | null,
+    floatActions: document.getElementById("mfe-float-actions") as HTMLDivElement | null,
+    floatToggle: document.getElementById("mfe-float-toggle") as HTMLButtonElement | null,
     themeToggle: document.getElementById("ds-theme-toggle") as HTMLButtonElement | null,
+    playgroundsFab: document.getElementById("mfe-playgrounds-fab") as HTMLButtonElement | null,
+    playgroundsDrawer: document.getElementById("mfe-playgrounds-drawer") as HTMLElement | null,
+    playgroundsBackdrop: document.getElementById("mfe-playgrounds-backdrop") as HTMLElement | null,
+    playgroundsClose: document.getElementById("mfe-playgrounds-close") as HTMLButtonElement | null,
     perfFab: document.getElementById("mfe-perf-fab") as HTMLButtonElement | null,
     perfPanel: document.getElementById("mfe-perf-panel") as HTMLElement | null,
     perfList: document.getElementById("mfe-perf-list") as HTMLElement | null,
@@ -316,6 +407,105 @@ export const initRootConfigShellUi = () => {
     profileImg: document.getElementById("ds-profile-img") as HTMLImageElement | null,
     profileInitials: document.getElementById("ds-profile-initials") as HTMLSpanElement | null,
     authLogout: document.getElementById("ds-auth-logout") as HTMLButtonElement | null,
+    primaryColorBtn: document.getElementById("ds-primary-color-btn") as HTMLButtonElement | null,
+    primaryColorInput: document.getElementById("ds-primary-color-input") as HTMLInputElement | null,
+  };
+
+  const getCurrentThemePrimaryColor = () =>
+    normalizeHexColor(
+      getComputedStyle(document.documentElement).getPropertyValue("--color-primary-500").trim()
+    );
+
+  const syncPrimaryColorPreview = () => {
+    if (!UI.primaryColorBtn) return;
+    const active = getCurrentThemePrimaryColor();
+    if (!active) return;
+    UI.primaryColorBtn.style.setProperty("--ds-primary-current", active);
+  };
+
+  const applyPrimaryColor = (hex: string) => {
+    const normalized = normalizeHexColor(hex);
+    if (!normalized) return;
+    const lightPalette = buildLightPrimaryPalette(normalized);
+    const darkPalette = buildDarkPrimaryPalette(normalized);
+    const root = document.documentElement;
+    root.style.setProperty("--ds-primary-light-100", lightPalette[100]);
+    root.style.setProperty("--ds-primary-light-500", lightPalette[500]);
+    root.style.setProperty("--ds-primary-light-700", lightPalette[700]);
+    root.style.setProperty("--ds-primary-dark-100", darkPalette[100]);
+    root.style.setProperty("--ds-primary-dark-500", darkPalette[500]);
+    root.style.setProperty("--ds-primary-dark-700", darkPalette[700]);
+    if (UI.primaryColorInput) {
+      UI.primaryColorInput.value = normalized;
+    }
+    syncPrimaryColorPreview();
+  };
+
+  const getCurrentPrimaryColor = () => {
+    const computed = getComputedStyle(document.documentElement)
+      .getPropertyValue("--ds-primary-light-500")
+      .trim();
+    const fromLight = normalizeHexColor(computed);
+    if (fromLight) return fromLight;
+    return getCurrentThemePrimaryColor();
+  };
+
+  const loadStoredPrimaryColor = () => {
+    try {
+      const stored = normalizeHexColor(window.localStorage.getItem(PRIMARY_COLOR_KEY));
+      if (stored) {
+        applyPrimaryColor(stored);
+        return;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    const fallback = getCurrentPrimaryColor();
+    if (fallback) {
+      applyPrimaryColor(fallback);
+    }
+  };
+
+  const syncThemeToggleUI = () => {
+    if (!UI.themeToggle) return;
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const nextMode = isDark ? "light" : "dark";
+    const label = nextMode === "dark" ? "Switch to dark theme" : "Switch to light theme";
+    UI.themeToggle.textContent = isDark ? "☀️" : "🌙";
+    UI.themeToggle.setAttribute("aria-label", label);
+    UI.themeToggle.setAttribute("title", label);
+    UI.themeToggle.setAttribute("data-theme-next", nextMode);
+  };
+
+  let floatButtonsOpen = false;
+  const setFloatButtonsOpen = (open: boolean) => {
+    if (!UI.floatButtons || !UI.floatToggle || !UI.floatActions) return;
+    floatButtonsOpen = open;
+    UI.floatButtons.classList.toggle("is-open", open);
+    UI.floatActions.setAttribute("aria-hidden", open ? "false" : "true");
+    UI.floatToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    UI.floatToggle.setAttribute("aria-controls", "mfe-float-actions");
+    UI.floatToggle.textContent = open ? "✕" : "•••";
+    const label = open ? "Close quick controls" : "Open quick controls";
+    UI.floatToggle.setAttribute("aria-label", label);
+    UI.floatToggle.setAttribute("title", label);
+  };
+
+  let playgroundsOpen = false;
+  const setPlaygroundsOpen = (open: boolean) => {
+    if (!UI.playgroundsDrawer || !UI.playgroundsBackdrop) return;
+    playgroundsOpen = open;
+    if (open) {
+      setFloatButtonsOpen(false);
+    }
+    document.documentElement.classList.toggle("mfe-playgrounds-open", open);
+    UI.playgroundsDrawer.setAttribute("aria-hidden", open ? "false" : "true");
+    UI.playgroundsBackdrop.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return;
+    }
+    document.body.style.removeProperty("overflow");
   };
 
   const getAppElements = () => getElements<HTMLElement>("[data-app]");
@@ -372,7 +562,11 @@ export const initRootConfigShellUi = () => {
       appLinks.forEach((link) => {
         const name = link.getAttribute("data-app-link");
         if (!name || !AUTH_REQUIRED_APPS.has(name)) return;
-        const currentHref = link.getAttribute("href") || "/";
+        const rawHref = link.getAttribute("href") || "/";
+        const currentHref = toSafeInternalHref(rawHref, "/");
+        if (rawHref !== currentHref) {
+          link.setAttribute("href", currentHref);
+        }
         if (locked) {
           const existing = link.getAttribute("data-auth-return");
           const returnTo = existing || currentHref;
@@ -668,16 +862,102 @@ export const initRootConfigShellUi = () => {
     if (!anchor) return;
     if (anchor.target && anchor.target !== "_self") return;
     const href = anchor.getAttribute("href");
-    if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+    if (!href) return;
+    if (isBlockedHrefProtocol(href)) {
+      event.preventDefault();
+      return;
+    }
+    if (href.startsWith("mailto:") || href.startsWith("tel:")) return;
     const resolved = new URL(href, window.location.href);
-    if (resolved.origin !== window.location.origin) return;
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
+      event.preventDefault();
+      return;
+    }
+    if (resolved.origin !== window.location.origin) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
+    setPlaygroundsOpen(false);
     navigateToUrl(resolved.href);
   };
 
   document.addEventListener("click", handleSpaLinkClick);
 
+  if (UI.floatButtons && UI.floatToggle && UI.floatActions) {
+    setFloatButtonsOpen(false);
+    UI.floatToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setFloatButtonsOpen(!floatButtonsOpen);
+    });
+
+    UI.floatButtons.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const isToggle = target.closest("#mfe-float-toggle");
+      if (isToggle) return;
+      const keepOpen = target.closest(".ds-fab-control--keep-open");
+      if (floatButtonsOpen && target.closest(".ds-fab-control") && !keepOpen) {
+        setFloatButtonsOpen(false);
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!floatButtonsOpen) return;
+      const target = event.target as Node | null;
+      if (target && UI.floatButtons?.contains(target)) return;
+      setFloatButtonsOpen(false);
+    });
+
+  }
+
+  if (UI.primaryColorBtn && UI.primaryColorInput) {
+    loadStoredPrimaryColor();
+    syncPrimaryColorPreview();
+    UI.primaryColorBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      UI.primaryColorInput?.click();
+    });
+    UI.primaryColorInput.addEventListener("input", () => {
+      const next = normalizeHexColor(UI.primaryColorInput?.value);
+      if (!next) return;
+      applyPrimaryColor(next);
+      try {
+        window.localStorage.setItem(PRIMARY_COLOR_KEY, next);
+      } catch {
+        // ignore storage errors
+      }
+    });
+  } else {
+    loadStoredPrimaryColor();
+    syncPrimaryColorPreview();
+  }
+
+  if (UI.playgroundsFab && UI.playgroundsDrawer && UI.playgroundsBackdrop && UI.playgroundsClose) {
+    UI.playgroundsFab.addEventListener("click", () => {
+      setPlaygroundsOpen(!playgroundsOpen);
+    });
+    UI.playgroundsBackdrop.addEventListener("click", () => {
+      setPlaygroundsOpen(false);
+    });
+    UI.playgroundsClose.addEventListener("click", () => {
+      setPlaygroundsOpen(false);
+    });
+  }
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (floatButtonsOpen) setFloatButtonsOpen(false);
+    if (playgroundsOpen) setPlaygroundsOpen(false);
+  });
+
+  window.addEventListener("single-spa:routing-event", () => {
+    if (floatButtonsOpen) setFloatButtonsOpen(false);
+    if (playgroundsOpen) setPlaygroundsOpen(false);
+  });
+
   if (UI.themeToggle) {
+    syncThemeToggleUI();
     UI.themeToggle.addEventListener("click", () => {
       const root = document.documentElement;
       const isDark = root.getAttribute("data-theme") === "dark";
@@ -686,6 +966,16 @@ export const initRootConfigShellUi = () => {
       } else {
         root.setAttribute("data-theme", "dark");
       }
+      syncThemeToggleUI();
+      syncPrimaryColorPreview();
+    });
+    const themeObserver = new MutationObserver(() => {
+      syncThemeToggleUI();
+      syncPrimaryColorPreview();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
     });
   }
 
@@ -704,6 +994,12 @@ export const initRootConfigShellUi = () => {
     }
     if (event.key === DISABLED_MODE_KEY) {
       applyDisabledState(readDisabled());
+    }
+    if (event.key === PRIMARY_COLOR_KEY) {
+      const next = normalizeHexColor(event.newValue);
+      if (next) {
+        applyPrimaryColor(next);
+      }
     }
   });
 

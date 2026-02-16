@@ -861,6 +861,7 @@
       const statusIsLocal = document.documentElement.dataset.isLocal === "true";
       const localModules = [
         { name: "@org/header-react", url: "http://localhost:9012/org-header-react.js" },
+        { name: "@org/footer-react", url: "http://localhost:9013/org-footer-react.js" },
         { name: "@org/catalog", url: "http://localhost:9001/org-catalog.js" },
         { name: "@org/profile-vue", url: "http://localhost:9002/profile-vue.js" },
         { name: "@org/dashboard-vue", url: "http://localhost:9004/dashboard-vue.js" },
@@ -920,6 +921,7 @@
       const disabledModeKey = "mfe-disabled-mode";
       const DEFAULT_DISABLED_MODE_BY_APP = {
         "@org/header-react": "placeholder",
+        "@org/footer-react": "placeholder",
       };
       const getFallbackDisabledMode = (name, defaultMode) => {
         const appDefault = DEFAULT_DISABLED_MODE_BY_APP[name];
@@ -929,6 +931,7 @@
       };
       const bridgeTargets = [
         { name: "@org/header-react", origin: "http://localhost:9012", url: "http://localhost:9012/?mfe-bridge=1" },
+        { name: "@org/footer-react", origin: "http://localhost:9013", url: "http://localhost:9013/?mfe-bridge=1" },
         { name: "@org/catalog", origin: "http://localhost:9001", url: "http://localhost:9001/?mfe-bridge=1" },
         { name: "@org/profile-vue", origin: "http://localhost:9002", url: "http://localhost:9002/?mfe-bridge=1" },
         { name: "@org/dashboard-vue", origin: "http://localhost:9004", url: "http://localhost:9004/?mfe-bridge=1" },
@@ -1348,7 +1351,7 @@
       let lastFilteredCount = 0;
       let lastRunningPorts = null;
       let lastDisabledList = [];
-      const pinnedModules = new Set(["@org/header-react"]);
+      const pinnedModules = new Set(["@org/header-react", "@org/footer-react"]);
       const extractPort = (url) => {
         if (!url || typeof url !== "string") return null;
         const match = url.match(/:(\d+)(?:\/|$)/);
@@ -1360,7 +1363,7 @@
         const clean = name.replace(/^@org\//, "");
         if (clean.startsWith("playground")) return "playgrounds";
         if (clean.startsWith("auth")) return "auth";
-        if (clean.startsWith("header")) return "shell";
+        if (clean.startsWith("header") || clean.startsWith("footer")) return "shell";
         if (clean.startsWith("dashboard")) return "dashboard";
         return "core";
       };

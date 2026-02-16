@@ -2,6 +2,7 @@
   "imports": {
     "@org/auth-angular": "https://mfe-auth-angular.vercel.app/main.js",
     "@org/header-react": "https://mfe-header-react.vercel.app/org-header-react.js",
+    "@org/footer-react": "https://footer-react-r7qp.vercel.app/org-footer-react.js",
     "@org/catalog": "https://cdn.yourdomain.com/org-catalog.js",
     "@org/profile-vue": "https://cdn.yourdomain.com/profile-vue.js",
     "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
