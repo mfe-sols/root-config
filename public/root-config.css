@@ -425,8 +425,8 @@
     .app-maintenance__btn:active {
       transform: translateY(0);
     }
-    .mfe-shell-header[data-app-state="maintenance"] .app-state-badge,
-    .mfe-shell-header[data-app-state="maintenance"] .app-name-badge {
+    [data-app-state="maintenance"] .app-state-badge,
+    [data-app-state="maintenance"] .app-name-badge {
       display: none;
     }
     .mfe-shell-header[data-app-state="maintenance"] .app-maintenance {
