@@ -85,6 +85,20 @@ const getFallbackDisabledMode = (app: string, defaultMode?: DisabledMode): Disab
   return "hide";
 };
 
+const AUTH_ROUTE_PREFIX = "/auth";
+const HIDE_MAINTENANCE_IN_AUTH_APPS = new Set<string>([
+  "@org/header-react",
+  "@org/footer-react",
+]);
+
+const isAuthRoute = () => {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.startsWith(AUTH_ROUTE_PREFIX);
+};
+
+const shouldForceHideMaintenanceInAuth = (app: string, state: string | null) =>
+  state === "maintenance" && isAuthRoute() && HIDE_MAINTENANCE_IN_AUTH_APPS.has(app);
+
 const normalizeDisabledModeConfig = (config?: DisabledModeConfig | null) => {
   if (!config) return { default: undefined, apps: {} as Record<string, DisabledMode> };
   if (config === "hide" || config === "placeholder") {
@@ -631,7 +645,10 @@ export const initRootConfigShellUi = () => {
         if (detail) {
           badge.title = detail;
         }
-    const mode = resolveDisabledMode(app, el);
+    const resolvedMode = resolveDisabledMode(app, el);
+    const mode: DisabledMode = shouldForceHideMaintenanceInAuth(app, state)
+      ? "hide"
+      : resolvedMode;
     el.setAttribute("data-app-hidden", "true");
     if (mode === "placeholder") {
       el.style.display = "";
@@ -695,6 +712,7 @@ export const initRootConfigShellUi = () => {
   let lastDisabledKey = "";
   let lastDisabledModeKey = "";
   let lastAppElementsKey = "";
+  let lastRouteModeKey = "";
   const normalizeDisabledList = (list: DisabledList) => {
     const seen = new Set<string>();
     const next: string[] = [];
@@ -715,21 +733,25 @@ export const initRootConfigShellUi = () => {
       .join("|");
     return `${config.default || ""}|${apps}`;
   };
+  const getRouteModeKey = () => (isAuthRoute() ? "auth" : "default");
   const applyDisabledState = (disabled: DisabledList) => {
     const normalized = normalizeDisabledList(disabled);
     const nextKey = getDisabledKey(normalized);
     const modeKey = getDisabledModeKey();
     const elementsKey = appElementsKey || getAppElementsKey();
+    const routeModeKey = getRouteModeKey();
     if (
       nextKey === lastDisabledKey &&
       modeKey === lastDisabledModeKey &&
-      elementsKey === lastAppElementsKey
+      elementsKey === lastAppElementsKey &&
+      routeModeKey === lastRouteModeKey
     ) {
       return;
     }
     lastDisabledKey = nextKey;
     lastDisabledModeKey = modeKey;
     lastAppElementsKey = elementsKey;
+    lastRouteModeKey = routeModeKey;
     lastDisabled = normalized;
     applyDisabledCards(normalized);
     applyCardVisibility(normalized);
@@ -954,6 +976,8 @@ export const initRootConfigShellUi = () => {
   window.addEventListener("single-spa:routing-event", () => {
     if (floatButtonsOpen) setFloatButtonsOpen(false);
     if (playgroundsOpen) setPlaygroundsOpen(false);
+    applyDisabledState(readDisabled());
+    applyAuthState();
   });
 
   if (UI.themeToggle) {
