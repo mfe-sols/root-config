@@ -9,7 +9,7 @@
     "@org/checkout-angular": "https://cdn.yourdomain.com/checkout-angular/main.js",
     "@org/playground-angular": "https://cdn.yourdomain.com/playground-angular/main.js",
     "@org/playground-vue": "https://cdn.yourdomain.com/playground-vue.js",
-    "@org/playground-react": "https://cdn.yourdomain.com/org-playground.js",
+    "@org/playground-react": "https://playground-react-gold.vercel.app/org-playground.js",
     "@org/playground-vanilla": "https://cdn.yourdomain.com/org-playground-vanilla.js",
     "@org/playground-svelte": "https://cdn.yourdomain.com/org-playground-svelte.js",
     "@org/simple-vanilla": "https://cdn.yourdomain.com/org-simple-vanilla.js"
