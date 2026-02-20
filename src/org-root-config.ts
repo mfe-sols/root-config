@@ -568,6 +568,9 @@ const systemFirstApps = new Set<string>([
   "@org/playground-svelte",
   "@org/simple-vanilla",
 ]);
+const systemFirstUmdGlobals: Record<string, string> = {
+  "@org/playground-vue": "playgroundVue",
+};
 
 const finalizeLoadMetrics = (name: string) => {
   if (typeof performance !== "undefined" && performance.mark) {
@@ -605,9 +608,12 @@ const allApplications = constructApplications({
             }
             if (format === "umd") {
               return loadUmdScript(importUrl).then(() => {
-                const mod = (window as any)[name] ?? (globalThis as any)[name];
+                const globalName = systemFirstUmdGlobals[name] || name;
+                const mod = (window as any)[globalName] ?? (globalThis as any)[globalName];
                 if (!mod) {
-                  throw new Error(`[root-config] UMD app ${name} did not expose a global`);
+                  throw new Error(
+                    `[root-config] UMD app ${name} did not expose a global (${globalName})`
+                  );
                 }
                 return mod;
               });
