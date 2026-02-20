@@ -63,10 +63,6 @@ const umdApps = {
     url: "//localhost:9009/org-simple-vanilla.js",
     global: "simpleVanilla",
   },
-  "@org/playground-vue": {
-    url: "//localhost:9006/playground-vue.js",
-    global: "playgroundVue",
-  },
   "@org/dashboard-vue": {
     url: "//localhost:9004/dashboard-vue.js",
     global: "dashboardVue",
@@ -568,6 +564,7 @@ const systemFirstApps = new Set<string>([
   "@org/checkout-angular",
   "@org/auth-angular",
   "@org/playground-angular",
+  "@org/playground-vue",
   "@org/playground-svelte",
   "@org/simple-vanilla",
 ]);
