@@ -365,6 +365,56 @@
         position: relative;
         z-index: 1;
       }
+      .runtime {
+        padding: 0 32px 8px;
+        position: relative;
+        z-index: 1;
+      }
+      .runtime-card {
+        gap: 12px;
+      }
+      .runtime-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .runtime-copy {
+        display: grid;
+        gap: 4px;
+      }
+      .runtime-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .runtime-row {
+        display: grid;
+        gap: 4px;
+      }
+      .runtime-row__label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.35px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .runtime-row__value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        font-size: 12px;
+        color: var(--text);
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        background: rgba(255, 255, 255, 0.72);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .runtime-live {
+        display: grid;
+        gap: 8px;
+      }
 
       .summary .card {
         gap: 10px;
@@ -554,6 +604,37 @@
         Active module check for this environment. Local toggle is per-browser; server toggle affects all.
       </p>
     </header>
+    <section class="runtime">
+      <div class="card runtime-card">
+        <div class="runtime-head">
+          <span class="badge info" id="runtime-state">LIVE</span>
+          <div class="runtime-copy">
+            <div class="summary-title" data-i18n="status.runtimeTitle">Runtime</div>
+            <div class="module-group__meta" id="runtime-subtitle"></div>
+          </div>
+        </div>
+        <div class="runtime-grid">
+          <div class="runtime-row">
+            <span class="runtime-row__label" data-i18n="status.runtimeHostLabel">Host</span>
+            <span class="runtime-row__value" id="runtime-host">-</span>
+          </div>
+          <div class="runtime-row">
+            <span class="runtime-row__label" data-i18n="status.runtimeSourceLabel">Source</span>
+            <span class="runtime-row__value" id="runtime-source">-</span>
+          </div>
+          <div class="runtime-row">
+            <span class="runtime-row__label" data-i18n="status.runtimeToggleLabel">Toggle API</span>
+            <span class="runtime-row__value" id="runtime-toggle-url">-</span>
+          </div>
+        </div>
+        <div class="runtime-live">
+          <div class="summary-title" data-i18n="status.runtimeLiveModules">Live modules</div>
+          <div class="summary-list" id="runtime-live-list">
+            <span class="pill muted" data-i18n="status.runtimeLiveModulesChecking">Checking...</span>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="actions">
       <button id="refresh" data-i18n="status.refresh">Refresh</button>
       <button class="secondary" id="auto" data-i18n="status.autoOff">Auto: Off</button>
@@ -668,6 +749,20 @@
           "status.title": "Orchestra Status",
           "status.subtitle":
             "Active module check for this environment. Local toggle is per-browser; server toggle affects all.",
+          "status.runtimeTitle": "Runtime",
+          "status.runtimeHostLabel": "Host",
+          "status.runtimeSourceLabel": "Source",
+          "status.runtimeToggleLabel": "Toggle API",
+          "status.runtimeLiveModules": "Live modules",
+          "status.runtimeLiveModulesChecking": "Checking...",
+          "status.runtimeLiveModulesNone": "None",
+          "status.runtimeModeLive": "Live",
+          "status.runtimeModeLocal": "Local",
+          "status.runtimeSubtitleLive":
+            "Live environment detected. Status checks use production import map and API.",
+          "status.runtimeSubtitleLocal":
+            "Local environment detected. Status checks use localhost module endpoints.",
+          "status.runtimeSourceLocal": "Local module map",
           "status.refresh": "Refresh",
           "status.refreshing": "Refreshing...",
           "status.autoOff": "Auto: Off",
@@ -747,6 +842,20 @@
           "status.title": "Trạng thái Orchestra",
           "status.subtitle":
             "Kiểm tra module đang hoạt động trong môi trường này. Tắt cục bộ theo trình duyệt; tắt từ server áp dụng cho tất cả.",
+          "status.runtimeTitle": "Môi trường chạy",
+          "status.runtimeHostLabel": "Host",
+          "status.runtimeSourceLabel": "Nguồn module",
+          "status.runtimeToggleLabel": "API toggle",
+          "status.runtimeLiveModules": "Module live",
+          "status.runtimeLiveModulesChecking": "Đang kiểm tra...",
+          "status.runtimeLiveModulesNone": "Không có",
+          "status.runtimeModeLive": "Live",
+          "status.runtimeModeLocal": "Local",
+          "status.runtimeSubtitleLive":
+            "Đang chạy môi trường live. Trang trạng thái đọc import map và API production.",
+          "status.runtimeSubtitleLocal":
+            "Đang chạy môi trường local. Trang trạng thái đọc endpoint localhost.",
+          "status.runtimeSourceLocal": "Bản đồ module local",
           "status.refresh": "Làm mới",
           "status.refreshing": "Đang làm mới...",
           "status.autoOff": "Tự động: Tắt",
@@ -892,6 +1001,12 @@
       const modulePageInfo = document.getElementById("module-page-info");
       const modulePagePrevBtn = document.getElementById("module-page-prev");
       const modulePageNextBtn = document.getElementById("module-page-next");
+      const runtimeStateEl = document.getElementById("runtime-state");
+      const runtimeSubtitleEl = document.getElementById("runtime-subtitle");
+      const runtimeHostEl = document.getElementById("runtime-host");
+      const runtimeSourceEl = document.getElementById("runtime-source");
+      const runtimeToggleUrlEl = document.getElementById("runtime-toggle-url");
+      const runtimeLiveListEl = document.getElementById("runtime-live-list");
       const runningPortsEl = document.getElementById("running-ports");
       const disabledModulesEl = document.getElementById("disabled-modules");
       const logListEl = document.getElementById("log-list");
@@ -1349,6 +1464,7 @@
       let pageSize = 200;
       let pageIndex = 0;
       let lastFilteredCount = 0;
+      let lastRuntimeEntries = null;
       let lastRunningPorts = null;
       let lastDisabledList = [];
       const pinnedModules = new Set(["@org/header-react", "@org/footer-react"]);
@@ -1356,6 +1472,78 @@
         if (!url || typeof url !== "string") return null;
         const match = url.match(/:(\d+)(?:\/|$)/);
         return match ? `:${match[1]}` : null;
+      };
+      const toAbsoluteUrl = (value) => {
+        if (!value || typeof value !== "string") return "-";
+        try {
+          return new URL(value, window.location.origin).toString();
+        } catch {
+          return value;
+        }
+      };
+      const isLiveRuntimeUrl = (value) => {
+        if (!value || typeof value !== "string") return false;
+        try {
+          const parsed = new URL(value, window.location.origin);
+          const host = parsed.hostname.toLowerCase();
+          if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      };
+      const renderRuntimeSection = (entries = lastRuntimeEntries) => {
+        if (runtimeStateEl) {
+          runtimeStateEl.className = `badge ${statusIsProd ? "info" : "warn"}`;
+          runtimeStateEl.textContent = statusIsProd
+            ? t("status.runtimeModeLive")
+            : t("status.runtimeModeLocal");
+        }
+        if (runtimeSubtitleEl) {
+          runtimeSubtitleEl.textContent = statusIsProd
+            ? t("status.runtimeSubtitleLive")
+            : t("status.runtimeSubtitleLocal");
+        }
+        if (runtimeHostEl) {
+          runtimeHostEl.textContent = window.location.host || window.location.origin;
+        }
+        if (runtimeSourceEl) {
+          runtimeSourceEl.textContent = statusIsLocal
+            ? t("status.runtimeSourceLocal")
+            : toAbsoluteUrl(importmapUrl);
+        }
+        if (runtimeToggleUrlEl) {
+          runtimeToggleUrlEl.textContent = toAbsoluteUrl(toggleUrl);
+        }
+        if (!runtimeLiveListEl) return;
+        runtimeLiveListEl.innerHTML = "";
+        if (!entries) {
+          const pill = document.createElement("span");
+          pill.className = "pill muted";
+          pill.textContent = t("status.runtimeLiveModulesChecking");
+          runtimeLiveListEl.appendChild(pill);
+          return;
+        }
+        const list = entries.filter((entry) => entry.ok && isLiveRuntimeUrl(entry.url));
+        if (list.length === 0) {
+          const pill = document.createElement("span");
+          pill.className = "pill muted";
+          pill.textContent = t("status.runtimeLiveModulesNone");
+          runtimeLiveListEl.appendChild(pill);
+          return;
+        }
+        list.forEach((entry) => {
+          const pill = document.createElement("span");
+          pill.className = "pill";
+          let host = "";
+          try {
+            host = new URL(entry.url, window.location.origin).host;
+          } catch {
+            host = "";
+          }
+          pill.textContent = host ? `${entry.name} • ${host}` : entry.name;
+          runtimeLiveListEl.appendChild(pill);
+        });
       };
 
       const getGroupKey = (name) => {
@@ -1898,6 +2086,12 @@
           lastDisabledList = list;
           renderDisabledModules(list);
         }
+        lastRuntimeEntries = statusEntries.map(([mod, ok, activeUrl]) => ({
+          name: mod.name,
+          ok: Boolean(ok),
+          url: activeUrl || mod.url,
+        }));
+        renderRuntimeSection(lastRuntimeEntries);
       };
 
       if (refreshBtn) {
@@ -1993,6 +2187,7 @@
         layoutCards();
         renderRunningPorts(lastRunningPorts);
         renderDisabledModules(lastDisabledList);
+        renderRuntimeSection(lastRuntimeEntries);
         renderLogs();
         cards.forEach((entry, name) => {
           if (entry.modeLabel) {
@@ -2085,6 +2280,7 @@
 
       loadLogs();
       renderLogs();
+      renderRuntimeSection();
       // Defer bridge iframe creation until after the first check
       // to avoid blocking initial module status checks with 12 iframe loads.
       runCheck().then(() => {
