@@ -365,27 +365,58 @@
         position: relative;
         z-index: 1;
       }
-      .runtime {
-        padding: 0 32px 8px;
-        position: relative;
-        z-index: 1;
-      }
       .runtime-card {
-        gap: 12px;
+        gap: 16px;
+        border-color: rgba(15, 118, 110, 0.18);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.84)),
+          radial-gradient(90% 120% at 0% 0%, rgba(15, 118, 110, 0.09), transparent 65%);
       }
       .runtime-head {
         display: flex;
         align-items: center;
-        gap: 10px;
+        justify-content: space-between;
+        gap: 16px;
       }
       .runtime-copy {
         display: grid;
-        gap: 4px;
+        gap: 5px;
+        min-width: 0;
+      }
+      .runtime-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        line-height: 1.15;
+        color: var(--text);
+      }
+      .runtime-subtitle {
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+      #runtime-state {
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 12px;
+        letter-spacing: 0.45px;
+        border: 1px solid transparent;
+      }
+      #runtime-state.badge.info {
+        background: rgba(15, 118, 110, 0.14);
+        color: #0f766e;
+        border-color: rgba(15, 118, 110, 0.28);
+      }
+      #runtime-state.badge.warn {
+        background: rgba(183, 110, 0, 0.14);
+        color: #8a6a00;
+        border-color: rgba(183, 110, 0, 0.28);
       }
       .runtime-grid {
         display: grid;
-        gap: 8px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+        grid-template-columns: minmax(0, 1fr);
       }
       .runtime-row {
         display: grid;
@@ -401,19 +432,53 @@
       .runtime-row__value {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
           "Courier New", monospace;
-        font-size: 12px;
+        font-size: 13px;
+        font-weight: 600;
         color: var(--text);
-        padding: 6px 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(15, 23, 42, 0.1);
-        background: rgba(255, 255, 255, 0.72);
+        padding: 9px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: rgba(255, 255, 255, 0.78);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .runtime-live {
         display: grid;
-        gap: 8px;
+        gap: 10px;
+      }
+      .runtime-live .summary-list {
+        gap: 10px;
+      }
+      .runtime-live .pill {
+        background: rgba(15, 118, 110, 0.1);
+        border: 1px solid rgba(15, 118, 110, 0.22);
+      }
+      .runtime-live .pill.muted {
+        background: rgba(15, 23, 42, 0.05);
+        border: 1px solid rgba(15, 23, 42, 0.1);
+      }
+      @media (max-width: 960px) {
+        .runtime-title {
+          font-size: 21px;
+        }
+        .runtime-subtitle {
+          font-size: 13px;
+        }
+      }
+      @media (max-width: 640px) {
+        .runtime-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+        }
+        #runtime-state {
+          align-self: flex-start;
+        }
+        .runtime-row__value {
+          font-size: 12px;
+          padding: 8px 10px;
+        }
       }
 
       .summary .card {
@@ -604,37 +669,6 @@
         Active module check for this environment. Local toggle is per-browser; server toggle affects all.
       </p>
     </header>
-    <section class="runtime">
-      <div class="card runtime-card">
-        <div class="runtime-head">
-          <span class="badge info" id="runtime-state">LIVE</span>
-          <div class="runtime-copy">
-            <div class="summary-title" data-i18n="status.runtimeTitle">Runtime</div>
-            <div class="module-group__meta" id="runtime-subtitle"></div>
-          </div>
-        </div>
-        <div class="runtime-grid">
-          <div class="runtime-row">
-            <span class="runtime-row__label" data-i18n="status.runtimeHostLabel">Host</span>
-            <span class="runtime-row__value" id="runtime-host">-</span>
-          </div>
-          <div class="runtime-row">
-            <span class="runtime-row__label" data-i18n="status.runtimeSourceLabel">Source</span>
-            <span class="runtime-row__value" id="runtime-source">-</span>
-          </div>
-          <div class="runtime-row">
-            <span class="runtime-row__label" data-i18n="status.runtimeToggleLabel">Toggle API</span>
-            <span class="runtime-row__value" id="runtime-toggle-url">-</span>
-          </div>
-        </div>
-        <div class="runtime-live">
-          <div class="summary-title" data-i18n="status.runtimeLiveModules">Live modules</div>
-          <div class="summary-list" id="runtime-live-list">
-            <span class="pill muted" data-i18n="status.runtimeLiveModulesChecking">Checking...</span>
-          </div>
-        </div>
-      </div>
-    </section>
     <section class="actions">
       <button id="refresh" data-i18n="status.refresh">Refresh</button>
       <button class="secondary" id="auto" data-i18n="status.autoOff">Auto: Off</button>
@@ -688,6 +722,26 @@
       </div>
     </section>
     <section class="summary">
+      <div class="card runtime-card">
+        <div class="runtime-head">
+          <div class="runtime-copy">
+            <div class="summary-title" data-i18n="status.runtimeTitle">Runtime</div>
+          </div>
+          <span class="badge info" id="runtime-state">LIVE</span>
+        </div>
+        <div class="runtime-grid">
+          <div class="runtime-row">
+            <span class="runtime-row__label" data-i18n="status.runtimeHostLabel">Host</span>
+            <span class="runtime-row__value" id="runtime-host">-</span>
+          </div>
+        </div>
+        <div class="runtime-live">
+          <div class="summary-title" data-i18n="status.runtimeLiveModules">Live modules</div>
+          <div class="summary-list" id="runtime-live-list">
+            <span class="pill muted" data-i18n="status.runtimeLiveModulesChecking">Checking...</span>
+          </div>
+        </div>
+      </div>
       <div class="card">
         <div class="summary-title" data-i18n="status.summaryPorts">Ports đang chạy</div>
         <div class="summary-list" id="running-ports">
@@ -751,8 +805,6 @@
             "Active module check for this environment. Local toggle is per-browser; server toggle affects all.",
           "status.runtimeTitle": "Runtime",
           "status.runtimeHostLabel": "Host",
-          "status.runtimeSourceLabel": "Source",
-          "status.runtimeToggleLabel": "Toggle API",
           "status.runtimeLiveModules": "Live modules",
           "status.runtimeLiveModulesChecking": "Checking...",
           "status.runtimeLiveModulesNone": "None",
@@ -762,7 +814,6 @@
             "Live environment detected. Status checks use production import map and API.",
           "status.runtimeSubtitleLocal":
             "Local environment detected. Status checks use localhost module endpoints.",
-          "status.runtimeSourceLocal": "Local module map",
           "status.refresh": "Refresh",
           "status.refreshing": "Refreshing...",
           "status.autoOff": "Auto: Off",
@@ -844,8 +895,6 @@
             "Kiểm tra module đang hoạt động trong môi trường này. Tắt cục bộ theo trình duyệt; tắt từ server áp dụng cho tất cả.",
           "status.runtimeTitle": "Môi trường chạy",
           "status.runtimeHostLabel": "Host",
-          "status.runtimeSourceLabel": "Nguồn module",
-          "status.runtimeToggleLabel": "API toggle",
           "status.runtimeLiveModules": "Module live",
           "status.runtimeLiveModulesChecking": "Đang kiểm tra...",
           "status.runtimeLiveModulesNone": "Không có",
@@ -855,7 +904,6 @@
             "Đang chạy môi trường live. Trang trạng thái đọc import map và API production.",
           "status.runtimeSubtitleLocal":
             "Đang chạy môi trường local. Trang trạng thái đọc endpoint localhost.",
-          "status.runtimeSourceLocal": "Bản đồ module local",
           "status.refresh": "Làm mới",
           "status.refreshing": "Đang làm mới...",
           "status.autoOff": "Tự động: Tắt",
@@ -1004,8 +1052,6 @@
       const runtimeStateEl = document.getElementById("runtime-state");
       const runtimeSubtitleEl = document.getElementById("runtime-subtitle");
       const runtimeHostEl = document.getElementById("runtime-host");
-      const runtimeSourceEl = document.getElementById("runtime-source");
-      const runtimeToggleUrlEl = document.getElementById("runtime-toggle-url");
       const runtimeLiveListEl = document.getElementById("runtime-live-list");
       const runningPortsEl = document.getElementById("running-ports");
       const disabledModulesEl = document.getElementById("disabled-modules");
@@ -1473,14 +1519,6 @@
         const match = url.match(/:(\d+)(?:\/|$)/);
         return match ? `:${match[1]}` : null;
       };
-      const toAbsoluteUrl = (value) => {
-        if (!value || typeof value !== "string") return "-";
-        try {
-          return new URL(value, window.location.origin).toString();
-        } catch {
-          return value;
-        }
-      };
       const isLiveRuntimeUrl = (value) => {
         if (!value || typeof value !== "string") return false;
         try {
@@ -1506,14 +1544,6 @@
         }
         if (runtimeHostEl) {
           runtimeHostEl.textContent = window.location.host || window.location.origin;
-        }
-        if (runtimeSourceEl) {
-          runtimeSourceEl.textContent = statusIsLocal
-            ? t("status.runtimeSourceLocal")
-            : toAbsoluteUrl(importmapUrl);
-        }
-        if (runtimeToggleUrlEl) {
-          runtimeToggleUrlEl.textContent = toAbsoluteUrl(toggleUrl);
         }
         if (!runtimeLiveListEl) return;
         runtimeLiveListEl.innerHTML = "";
