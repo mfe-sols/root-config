@@ -15,8 +15,9 @@ require("dotenv").config({
 
 module.exports = (webpackConfigEnv, argv) => {
   const orgName = "org";
-  const apiProxyTarget =
-    process.env.AUTH_BASE_URL || process.env.API_BASE_URL || "";
+  const authProxyTarget = process.env.AUTH_BASE_URL || process.env.API_BASE_URL || "";
+  const toggleProxyTarget =
+    process.env.MFE_TOGGLE_BASE_URL || process.env.API_BASE_URL || process.env.AUTH_BASE_URL || "";
   const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
   const uiKitCssPath = path.resolve(__dirname, "public/ui-kit.css");
   const rootConfigCssVersion = (() => {
@@ -99,19 +100,42 @@ module.exports = (webpackConfigEnv, argv) => {
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
       },
-      ...(apiProxyTarget
+      ...((authProxyTarget || toggleProxyTarget)
         ? {
             proxy: {
-              "/api/auth": {
-                target: apiProxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/api/mfe-toggle": {
-                target: apiProxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
+              ...(authProxyTarget
+                ? {
+                    "/api/auth": {
+                      target: authProxyTarget,
+                      changeOrigin: true,
+                      secure: false,
+                    },
+                  }
+                : {}),
+              ...(toggleProxyTarget
+                ? {
+                    "/api/mfe-toggle": {
+                      target: toggleProxyTarget,
+                      changeOrigin: true,
+                      secure: false,
+                      proxyTimeout: 10000,
+                      timeout: 10000,
+                      logLevel: "silent",
+                      onError: (_err, req, res) => {
+                        if (res.headersSent) return;
+                        if (req.method === "GET") {
+                          res.writeHead(200, { "Content-Type": "application/json" });
+                          res.end(JSON.stringify({ disabled: [] }));
+                          return;
+                        }
+                        res.writeHead(502, { "Content-Type": "application/json" });
+                        res.end(
+                          JSON.stringify({ error: "mfe-toggle proxy unavailable" })
+                        );
+                      },
+                    },
+                  }
+                : {}),
             },
           }
         : {}),
