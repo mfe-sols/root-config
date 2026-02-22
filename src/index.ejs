@@ -98,11 +98,35 @@
   <div
     id="mfe-shell-loader"
     class="mfe-shell-loader"
+    data-loader-variant="bagua"
     role="status"
     aria-live="polite"
     aria-label="Loading system"
   >
-    <div class="mfe-shell-loader__spinner" aria-hidden="true"></div>
+    <div class="mfe-shell-loader__spinner" aria-hidden="true">
+      <svg class="mfe-shell-loader__bagua" viewBox="0 0 100 100" focusable="false" aria-hidden="true">
+        <circle class="mfe-shell-loader__bagua-shape mfe-shell-loader__bagua-shape--light" cx="50" cy="50" r="50"></circle>
+        <path
+          class="mfe-shell-loader__bagua-shape mfe-shell-loader__bagua-shape--dark"
+          d="M50 0
+             A50 50 0 0 0 50 100
+             A25 25 0 0 0 50 50
+             A25 25 0 0 1 50 0
+             Z"
+          transform="translate(0 100) scale(1 -1)"
+        ></path>
+        <circle class="mfe-shell-loader__bagua-shape mfe-shell-loader__bagua-shape--light" cx="50" cy="25" r="8.333"></circle>
+        <circle class="mfe-shell-loader__bagua-shape mfe-shell-loader__bagua-shape--dark" cx="50" cy="75" r="8.333"></circle>
+        <circle
+          class="mfe-shell-loader__bagua-stroke"
+          cx="50"
+          cy="50"
+          r="49.65"
+          fill="none"
+          stroke-width="0.7"
+        ></circle>
+      </svg>
+    </div>
     <span class="mfe-shell-loader__sr">Loading system</span>
   </div>
   <div class="mfe-float-buttons" id="mfe-float-buttons" aria-label="Quick controls">
@@ -237,8 +261,116 @@
     (function () {
       var root = document.documentElement;
       var loaderEl = document.getElementById("mfe-shell-loader");
+      var loaderLabelEl = loaderEl ? loaderEl.querySelector(".mfe-shell-loader__sr") : null;
       var loaderTimeoutId = 0;
       var loaderClosed = false;
+      var loaderRemoveDelayMs = 320;
+      var bootStarted = false;
+      var onFirstMount = hideLoader;
+      var onAppChange = hideLoader;
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function toNumber(value, fallback) {
+        var next = Number(value);
+        return Number.isFinite(next) ? next : fallback;
+      }
+
+      function cssSupports(prop, value) {
+        try {
+          return !!(window.CSS && typeof window.CSS.supports === "function" && window.CSS.supports(prop, value));
+        } catch (_err) {
+          return false;
+        }
+      }
+
+      function sanitizeCssColor(value) {
+        if (typeof value !== "string") return "";
+        var trimmed = value.trim();
+        if (!trimmed || trimmed.length > 64) return "";
+        if (/[;{}]/.test(trimmed)) return "";
+        return cssSupports("color", trimmed) ? trimmed : "";
+      }
+
+      function toCssLength(value) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return clamp(value, 16, 240) + "px";
+        }
+        if (typeof value !== "string") return "";
+        var trimmed = value.trim();
+        if (!trimmed || trimmed.length > 32) return "";
+        if (/[;{}]/.test(trimmed)) return "";
+        return cssSupports("width", trimmed) ? trimmed : "";
+      }
+
+      function setLoaderStyleVar(name, value) {
+        if (!loaderEl || value == null || value === "") return;
+        loaderEl.style.setProperty(name, String(value));
+      }
+
+      function applyLoaderConfig(config) {
+        if (!loaderEl || !config || typeof config !== "object") return;
+
+        var variant = typeof config.variant === "string" ? config.variant.trim().toLowerCase() : "";
+        if (variant === "bagua" || variant === "ring") {
+          loaderEl.setAttribute("data-loader-variant", variant);
+        }
+
+        var label = typeof config.label === "string" ? config.label.trim() : "";
+        if (label) {
+          loaderEl.setAttribute("aria-label", label);
+          if (loaderLabelEl) loaderLabelEl.textContent = label;
+        }
+
+        var size = toCssLength(config.size);
+        if (size) setLoaderStyleVar("--mfe-shell-loader-size", size);
+
+        var speedMs = toNumber(config.speedMs, NaN);
+        if (Number.isFinite(speedMs)) {
+          setLoaderStyleVar("--mfe-shell-loader-speed", clamp(speedMs, 160, 5000) + "ms");
+        }
+
+        var accent = sanitizeCssColor(config.accent);
+        if (accent) setLoaderStyleVar("--mfe-shell-loader-accent", accent);
+
+        var accentStrong = sanitizeCssColor(config.accentStrong);
+        if (accentStrong) setLoaderStyleVar("--mfe-shell-loader-accent-strong", accentStrong);
+
+        var baguaLight = sanitizeCssColor(config.baguaLight);
+        if (baguaLight) setLoaderStyleVar("--mfe-shell-loader-bagua-light", baguaLight);
+
+        var baguaDark = sanitizeCssColor(config.baguaDark);
+        if (baguaDark) setLoaderStyleVar("--mfe-shell-loader-bagua-dark", baguaDark);
+
+        var baguaBorder = sanitizeCssColor(config.baguaBorder);
+        if (baguaBorder) setLoaderStyleVar("--mfe-shell-loader-bagua-border", baguaBorder);
+
+        var timeoutMs = toNumber(config.timeoutMs, NaN);
+        if (Number.isFinite(timeoutMs)) {
+          loaderRemoveDelayMs = clamp(toNumber(config.removeDelayMs, loaderRemoveDelayMs), 160, 5000);
+          return clamp(timeoutMs, 800, 60000);
+        }
+
+        var removeDelayMs = toNumber(config.removeDelayMs, NaN);
+        if (Number.isFinite(removeDelayMs)) {
+          loaderRemoveDelayMs = clamp(removeDelayMs, 160, 5000);
+        }
+      }
+
+      function setLoaderTimeout(ms) {
+        if (loaderClosed) return;
+        if (loaderTimeoutId) {
+          window.clearTimeout(loaderTimeoutId);
+        }
+        loaderTimeoutId = window.setTimeout(hideLoader, ms);
+      }
+
+      function cleanupLoaderListeners() {
+        window.removeEventListener("single-spa:first-mount", onFirstMount);
+        window.removeEventListener("single-spa:app-change", onAppChange);
+      }
 
       function hideLoader() {
         if (loaderClosed) return;
@@ -247,6 +379,7 @@
           window.clearTimeout(loaderTimeoutId);
           loaderTimeoutId = 0;
         }
+        cleanupLoaderListeners();
         root.classList.remove("mfe-shell-booting");
         if (!loaderEl) return;
         loaderEl.classList.add("is-hidden");
@@ -254,12 +387,39 @@
           if (loaderEl && loaderEl.parentNode) {
             loaderEl.parentNode.removeChild(loaderEl);
           }
-        }, 320);
+        }, loaderRemoveDelayMs);
       }
 
-      loaderTimeoutId = window.setTimeout(hideLoader, 8000);
-      window.addEventListener("single-spa:first-mount", hideLoader, { once: true });
-      window.addEventListener("single-spa:app-change", hideLoader, { once: true });
+      var loaderTimeoutMs = 8000;
+      var runtimeLoaderConfig = window.__MFE_SHELL_LOADER_CONFIG__;
+      var configuredTimeoutMs = applyLoaderConfig(runtimeLoaderConfig);
+      if (Number.isFinite(configuredTimeoutMs)) {
+        loaderTimeoutMs = configuredTimeoutMs;
+      }
+
+      if (window.mfeShellLoader && typeof window.mfeShellLoader === "object") {
+        window.mfeShellLoader.hide = hideLoader;
+        window.mfeShellLoader.configure = function (nextConfig) {
+          var nextTimeoutMs = applyLoaderConfig(nextConfig);
+          if (Number.isFinite(nextTimeoutMs) && !loaderClosed) {
+            setLoaderTimeout(nextTimeoutMs);
+          }
+        };
+      } else {
+        window.mfeShellLoader = {
+          hide: hideLoader,
+          configure: function (nextConfig) {
+            var nextTimeoutMs = applyLoaderConfig(nextConfig);
+            if (Number.isFinite(nextTimeoutMs) && !loaderClosed) {
+              setLoaderTimeout(nextTimeoutMs);
+            }
+          }
+        };
+      }
+
+      setLoaderTimeout(loaderTimeoutMs);
+      window.addEventListener("single-spa:first-mount", onFirstMount, { once: true });
+      window.addEventListener("single-spa:app-change", onAppChange, { once: true });
 
       function importRootConfig() {
         if (window.System && window.System.import) {
@@ -273,11 +433,22 @@
           throw error;
         });
       }
+      function bootImportRootConfig() {
+        if (bootStarted) return;
+        bootStarted = true;
+        importRootConfig();
+      }
       function start() {
+        if (bootStarted) return;
         if (window.importMapInjector && window.importMapInjector.initPromise) {
-          window.importMapInjector.initPromise.then(importRootConfig);
+          Promise.resolve(window.importMapInjector.initPromise)
+            .then(bootImportRootConfig)
+            .catch(function (error) {
+              hideLoader();
+              throw error;
+            });
         } else {
-          importRootConfig();
+          bootImportRootConfig();
         }
       }
       if (document.readyState === "loading") {

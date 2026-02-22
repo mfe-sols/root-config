@@ -325,12 +325,21 @@ const loadUmdScript = (url: string) => {
     }
     script.async = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load ${escapeHtml(url)}`));
+    script.onerror = () => {
+      script.remove();
+      reject(new Error(`Failed to load ${escapeHtml(url)}`));
+    };
     document.head.appendChild(script);
   });
 
-  umdLoads.set(cacheKey, promise);
-  return promise;
+  const trackedPromise = promise.catch((error) => {
+    // Allow retries after transient failures (dev servers/HMR restarts).
+    umdLoads.delete(cacheKey);
+    throw error;
+  });
+
+  umdLoads.set(cacheKey, trackedPromise);
+  return trackedPromise;
 };
 
 type ModuleFormat = "system" | "esm" | "umd" | "unknown";
@@ -338,6 +347,14 @@ const moduleFormatCache = new Map<string, ModuleFormat>();
 
 const withCacheBust = (url: string) =>
   isLocalhost ? `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}` : url;
+
+const fetchWithTimeout = (input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 2500) => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+};
 
 /**
  * Detect the module format of a remote bundle.
@@ -377,10 +394,10 @@ const detectModuleFormat = (url: string) => {
   };
 
   // Try Range request first (only 8 KB)
-  return fetch(bustUrl, {
+  return fetchWithTimeout(bustUrl, {
     cache: "no-store",
     headers: { Range: "bytes=0-8191" },
-  })
+  }, isLocalhost ? 1200 : 3000)
     .then((res) => {
       // 206 = partial content (Range supported), 200 = server ignored Range
       if (!res.ok && res.status !== 206) return "unknown" as ModuleFormat;
@@ -395,7 +412,7 @@ const detectModuleFormat = (url: string) => {
             return format;
           }
           // If still unknown (might be ESM with exports at the end), do full fetch
-          return fetch(bustUrl, { cache: "no-store" })
+          return fetchWithTimeout(bustUrl, { cache: "no-store" }, isLocalhost ? 2200 : 5000)
             .then((r) => (r.ok ? r.text() : ""))
             .then((full) => {
               const tail = full.slice(-4096);
@@ -448,6 +465,7 @@ const setRuntimeDisabledApps = (disabled: Set<string>) => {
 const watchServerToggle = () => {
   let last = "";
   let timer: number | null = null;
+  let inFlight = false;
   const intervalMs = 5000;
   const hiddenIntervalMs = 15000;
 
@@ -457,11 +475,16 @@ const watchServerToggle = () => {
   };
 
   const poll = () => {
+    if (inFlight) {
+      schedule(intervalMs);
+      return;
+    }
     if (document.hidden) {
       schedule(hiddenIntervalMs);
       return;
     }
-    fetch(toggleUrl, { cache: "no-store" })
+    inFlight = true;
+    fetchWithTimeout(toggleUrl, { cache: "no-store" }, 1800)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || typeof data !== "object") return;
@@ -474,7 +497,10 @@ const watchServerToggle = () => {
       .catch(() => {
         // ignore
       })
-      .finally(() => schedule(intervalMs));
+      .finally(() => {
+        inFlight = false;
+        schedule(intervalMs);
+      });
   };
 
   const onVisibility = () => {
@@ -492,6 +518,7 @@ const watchAuthBuild = () => {
   const authBuildUrl = "http://localhost:9010/mfe-auth-dev.json";
   let lastBuildId: string | null = null;
   let timer: number | null = null;
+  let inFlight = false;
   const intervalMs = 2000;
   const hiddenIntervalMs = 8000;
 
@@ -501,11 +528,16 @@ const watchAuthBuild = () => {
   };
 
   const poll = () => {
+    if (inFlight) {
+      schedule(intervalMs);
+      return;
+    }
     if (document.hidden) {
       schedule(hiddenIntervalMs);
       return;
     }
-    fetch(authBuildUrl, { cache: "no-store" })
+    inFlight = true;
+    fetchWithTimeout(authBuildUrl, { cache: "no-store" }, 1200)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || typeof data !== "object") return;
@@ -524,7 +556,10 @@ const watchAuthBuild = () => {
       .catch(() => {
         // ignore
       })
-      .finally(() => schedule(intervalMs));
+      .finally(() => {
+        inFlight = false;
+        schedule(intervalMs);
+      });
   };
 
   document.addEventListener("visibilitychange", () => {
