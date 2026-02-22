@@ -109,12 +109,12 @@ const renderMaintenanceContent = (host: HTMLElement, payload: MaintenanceCardPay
     "div",
     "app-maintenance__actions"
   );
-  const button = ensureNode<HTMLButtonElement>(
-    actions,
-    ".app-maintenance__btn",
-    "button",
-    "app-maintenance__btn"
-  );
+  // const button = ensureNode<HTMLButtonElement>(
+  //   actions,
+  //   ".app-maintenance__btn",
+  //   "button",
+  //   "app-maintenance__btn"
+  // );
 
   icon.textContent = "!";
   icon.setAttribute("aria-hidden", "true");
@@ -126,12 +126,12 @@ const renderMaintenanceContent = (host: HTMLElement, payload: MaintenanceCardPay
   meta.textContent = `Service paused: ${appTagText}`;
   time.textContent = `Updated ${formatMaintenanceTimestamp()}`;
 
-  button.type = "button";
-  button.textContent = "Open status";
-  button.setAttribute("aria-label", "Open status page");
-  button.onclick = () => {
-    navigateToUrl(statusPath);
-  };
+  // button.type = "button";
+  // button.textContent = "Open status";
+  // button.setAttribute("aria-label", "Open status page");
+  // button.onclick = () => {
+  //   navigateToUrl(statusPath);
+  // };
 };
 
 class MfeMaintenanceCardElement extends HTMLElement {
