@@ -268,6 +268,9 @@
       var bootStarted = false;
       var onFirstMount = hideLoader;
       var onAppChange = hideLoader;
+      var onNoAppChange = hideLoader;
+      var onRoutingEvent = hideLoader;
+      var onMfeError = hideLoader;
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -370,6 +373,9 @@
       function cleanupLoaderListeners() {
         window.removeEventListener("single-spa:first-mount", onFirstMount);
         window.removeEventListener("single-spa:app-change", onAppChange);
+        window.removeEventListener("single-spa:no-app-change", onNoAppChange);
+        window.removeEventListener("single-spa:routing-event", onRoutingEvent);
+        window.removeEventListener("mfe-error", onMfeError);
       }
 
       function hideLoader() {
@@ -420,6 +426,9 @@
       setLoaderTimeout(loaderTimeoutMs);
       window.addEventListener("single-spa:first-mount", onFirstMount, { once: true });
       window.addEventListener("single-spa:app-change", onAppChange, { once: true });
+      window.addEventListener("single-spa:no-app-change", onNoAppChange, { once: true });
+      window.addEventListener("single-spa:routing-event", onRoutingEvent, { once: true });
+      window.addEventListener("mfe-error", onMfeError, { once: true });
 
       function importRootConfig() {
         if (window.System && window.System.import) {

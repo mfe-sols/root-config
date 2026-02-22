@@ -97,7 +97,9 @@ const isAuthRoute = () => {
 };
 
 const shouldForceHideMaintenanceInAuth = (app: string, state: string | null) =>
-  state === "maintenance" && isAuthRoute() && HIDE_MAINTENANCE_IN_AUTH_APPS.has(app);
+  (state === "maintenance" || state === "unavailable") &&
+  isAuthRoute() &&
+  HIDE_MAINTENANCE_IN_AUTH_APPS.has(app);
 
 const normalizeDisabledModeConfig = (config?: DisabledModeConfig | null) => {
   if (!config) return { default: undefined, apps: {} as Record<string, DisabledMode> };
@@ -648,6 +650,8 @@ export const initRootConfigShellUi = () => {
     const resolvedMode = resolveDisabledMode(app, el);
     const mode: DisabledMode = shouldForceHideMaintenanceInAuth(app, state)
       ? "hide"
+      : state === "unavailable"
+      ? "placeholder"
       : resolvedMode;
     el.setAttribute("data-app-hidden", "true");
     if (mode === "placeholder") {
@@ -697,10 +701,20 @@ export const initRootConfigShellUi = () => {
         ? true
         : availableApps.has(app);
       if (!isAvailable) {
-        el.style.display = "none";
+        if (app) {
+          setAppState(
+            app,
+            "unavailable",
+            "Unavailable",
+            "Local microfrontend is not running. Start its dev server and refresh."
+          );
+        } else {
+          el.style.display = "none";
+        }
         return;
       }
-      if (app && el.getAttribute("data-app-state") === "maintenance") {
+      const currentState = el.getAttribute("data-app-state");
+      if (app && (currentState === "maintenance" || currentState === "unavailable")) {
         setAppState(app, null);
       } else {
         el.style.display = "";
