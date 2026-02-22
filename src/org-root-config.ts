@@ -74,6 +74,19 @@ const umdLoads = new Map<string, Promise<void>>();
 const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   || window.location.hostname.endsWith(".devtunnels.ms");
 
+const resolveImportMapUrl = (name: string): string | null => {
+  try {
+    const systemAny = (window as any).System;
+    if (systemAny && typeof systemAny.resolve === "function") {
+      const resolved = systemAny.resolve(name);
+      return typeof resolved === "string" ? resolved : null;
+    }
+  } catch {
+    // Ignore and fall through to null; caller can use another strategy.
+  }
+  return null;
+};
+
 /** Toggle endpoint: always use same-origin API route. */
 const toggleUrl = "/api/mfe-toggle";
 const localAppUrls: Record<string, string> = {
@@ -625,10 +638,13 @@ const allApplications = constructApplications({
     }
     if (name in umdApps) {
       const app = umdApps[name as keyof typeof umdApps];
-      return loadUmdScript(app.url)
+      const localUrl = localAppUrls[name] || app.url;
+      const remoteUrl = resolveImportMapUrl(name);
+      const umdUrl = isLocalhost ? localUrl : (remoteUrl || app.url);
+      return loadUmdScript(umdUrl)
         .then(() => wrapModuleLifecycles(name, (window as any)[app.global]))
         .catch((error) => {
-          console.error(`[root-config] Failed to load UMD app ${name}`, error);
+          console.error(`[root-config] Failed to load UMD app ${name} from ${umdUrl}`, error);
           return createUnavailableApp(name);
         })
         .finally(() => finalizeLoadMetrics(name));
