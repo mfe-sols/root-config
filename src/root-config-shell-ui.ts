@@ -33,6 +33,7 @@ const isSafeUrl = (url: string): boolean => {
 const shellInitFlag = "__rootConfigShellUiInit";
 const DISABLED_MODE_KEY = "mfe-disabled-mode";
 const PRIMARY_COLOR_KEY = "ds-primary-color";
+const FLOAT_BUTTONS_POS_KEY = "mfe-float-buttons-pos";
 
 const AUTH_REQUIRED_APPS = new Set([
   "@org/playground-angular",
@@ -494,6 +495,84 @@ export const initRootConfigShellUi = () => {
   };
 
   let floatButtonsOpen = false;
+  let suppressFloatToggleClick = false;
+  const clampNumber = (value: number, min: number, max: number) =>
+    Math.min(Math.max(value, min), max);
+
+  const isCompactFloatButtonsViewport = () =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 1024px)").matches;
+
+  const getFloatButtonsPositionStorageKey = () =>
+    `${FLOAT_BUTTONS_POS_KEY}:${isCompactFloatButtonsViewport() ? "compact" : "desktop"}`;
+
+  const getFloatButtonsPositionBounds = () => {
+    if (!UI.floatButtons) {
+      return { minLeft: 8, maxLeft: 8, minTop: 8, maxTop: 8 };
+    }
+    const isCompact = isCompactFloatButtonsViewport();
+    const sideMargin = isCompact ? 12 : 8;
+    const topMargin = isCompact ? 56 : 8;
+    // On mobile/tablet, allow user to intentionally place controls near the footer.
+    // Only keep a small edge margin so the control stays visible.
+    const bottomReserve = isCompact ? 12 : 8;
+    const minLeft = sideMargin;
+    const maxLeft = Math.max(minLeft, window.innerWidth - UI.floatButtons.offsetWidth - sideMargin);
+    const minTop = topMargin;
+    const maxTop = Math.max(minTop, window.innerHeight - UI.floatButtons.offsetHeight - bottomReserve);
+    return { minLeft, maxLeft, minTop, maxTop };
+  };
+
+  const clearFloatButtonsInlinePosition = () => {
+    if (!UI.floatButtons) return;
+    UI.floatButtons.style.left = "";
+    UI.floatButtons.style.top = "";
+    UI.floatButtons.style.right = "";
+    UI.floatButtons.style.bottom = "";
+  };
+
+  const readFloatButtonsPosition = () => {
+    try {
+      const raw =
+        window.localStorage.getItem(getFloatButtonsPositionStorageKey()) ??
+        window.localStorage.getItem(FLOAT_BUTTONS_POS_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { left?: number; top?: number } | null;
+      if (!parsed || typeof parsed !== "object") return null;
+      if (typeof parsed.left !== "number" || typeof parsed.top !== "number") return null;
+      if (!Number.isFinite(parsed.left) || !Number.isFinite(parsed.top)) return null;
+      return { left: parsed.left, top: parsed.top };
+    } catch {
+      return null;
+    }
+  };
+
+  const persistFloatButtonsPosition = (left: number, top: number) => {
+    try {
+      window.localStorage.setItem(getFloatButtonsPositionStorageKey(), JSON.stringify({ left, top }));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const applyFloatButtonsPosition = () => {
+    if (!UI.floatButtons) return;
+    UI.floatButtons.classList.add("is-draggable");
+    const stored = readFloatButtonsPosition();
+    if (!stored) {
+      clearFloatButtonsInlinePosition();
+      return;
+    }
+
+    const bounds = getFloatButtonsPositionBounds();
+    const left = clampNumber(stored.left, bounds.minLeft, bounds.maxLeft);
+    const top = clampNumber(stored.top, bounds.minTop, bounds.maxTop);
+
+    UI.floatButtons.style.left = `${left}px`;
+    UI.floatButtons.style.top = `${top}px`;
+    UI.floatButtons.style.right = "auto";
+    UI.floatButtons.style.bottom = "auto";
+  };
+
   const setFloatButtonsOpen = (open: boolean) => {
     if (!UI.floatButtons || !UI.floatToggle || !UI.floatActions) return;
     floatButtonsOpen = open;
@@ -505,6 +584,101 @@ export const initRootConfigShellUi = () => {
     const label = open ? "Close quick controls" : "Open quick controls";
     UI.floatToggle.setAttribute("aria-label", label);
     UI.floatToggle.setAttribute("title", label);
+  };
+
+  const initFloatButtonsDrag = () => {
+    if (!UI.floatButtons || !UI.floatToggle) return;
+    if (typeof (window as any).PointerEvent === "undefined") return;
+    if (typeof UI.floatToggle.setPointerCapture !== "function") return;
+
+    let startX = 0;
+    let startY = 0;
+    let originLeft = 0;
+    let originTop = 0;
+    let dragging = false;
+    let pointerActive = false;
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      UI.floatButtons?.classList.remove("is-dragging");
+      dragging = false;
+      pointerActive = false;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!pointerActive || !UI.floatButtons) return;
+      const deltaX = event.clientX - startX;
+      const deltaY = event.clientY - startY;
+
+      if (!dragging && Math.hypot(deltaX, deltaY) < 6) return;
+
+      if (!dragging) {
+        dragging = true;
+        UI.floatButtons.classList.add("is-dragging");
+      }
+
+      const bounds = getFloatButtonsPositionBounds();
+      const nextLeft = clampNumber(originLeft + deltaX, bounds.minLeft, bounds.maxLeft);
+      const nextTop = clampNumber(originTop + deltaY, bounds.minTop, bounds.maxTop);
+
+      UI.floatButtons.style.left = `${nextLeft}px`;
+      UI.floatButtons.style.top = `${nextTop}px`;
+      UI.floatButtons.style.right = "auto";
+      UI.floatButtons.style.bottom = "auto";
+
+      event.preventDefault();
+    };
+
+    const onPointerUp = () => {
+      if (!pointerActive || !UI.floatButtons) return cleanup();
+      if (dragging) {
+        const left = parseFloat(UI.floatButtons.style.left || "0");
+        const top = parseFloat(UI.floatButtons.style.top || "0");
+        if (Number.isFinite(left) && Number.isFinite(top)) {
+          persistFloatButtonsPosition(left, top);
+        }
+        suppressFloatToggleClick = true;
+        window.setTimeout(() => {
+          suppressFloatToggleClick = false;
+        }, 0);
+      }
+      cleanup();
+    };
+
+    UI.floatToggle.addEventListener("pointerdown", (event) => {
+      const pointerEvent = event as PointerEvent;
+      if (pointerEvent.isPrimary === false) return;
+      if (pointerEvent.pointerType === "mouse" && pointerEvent.button !== 0) return;
+      if (!UI.floatButtons) return;
+
+      const rect = UI.floatButtons.getBoundingClientRect();
+      startX = pointerEvent.clientX;
+      startY = pointerEvent.clientY;
+      originLeft = rect.left;
+      originTop = rect.top;
+      pointerActive = true;
+      dragging = false;
+
+      pointerEvent.preventDefault();
+      UI.floatToggle.setPointerCapture(pointerEvent.pointerId);
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+    });
+
+    window.addEventListener("resize", () => {
+      applyFloatButtonsPosition();
+      if (!UI.floatButtons) return;
+      const left = parseFloat(UI.floatButtons.style.left || "");
+      const top = parseFloat(UI.floatButtons.style.top || "");
+      if (Number.isFinite(left) && Number.isFinite(top)) {
+        persistFloatButtonsPosition(left, top);
+      }
+    });
+
+    applyFloatButtonsPosition();
   };
 
   let playgroundsOpen = false;
@@ -922,7 +1096,13 @@ export const initRootConfigShellUi = () => {
 
   if (UI.floatButtons && UI.floatToggle && UI.floatActions) {
     setFloatButtonsOpen(false);
+    initFloatButtonsDrag();
     UI.floatToggle.addEventListener("click", (event) => {
+      if (suppressFloatToggleClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       event.stopPropagation();
       setFloatButtonsOpen(!floatButtonsOpen);
     });

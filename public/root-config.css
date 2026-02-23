@@ -276,6 +276,16 @@
       font-weight: 800;
       letter-spacing: 0.04em;
       line-height: 1;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .mfe-float-buttons.is-draggable .mfe-float-toggle {
+      cursor: grab;
+      touch-action: none;
+    }
+    .mfe-float-buttons.is-dragging .mfe-float-toggle {
+      cursor: grabbing;
     }
     .ds-primary-color-btn {
       position: relative;
@@ -1022,6 +1032,45 @@
     [data-theme="dark"] .app-maintenance__btn:hover {
       box-shadow: 0 10px 22px rgba(2, 6, 23, 0.55);
     }
+    @media (max-width: 1024px) {
+      .mfe-float-buttons {
+        position: fixed !important;
+        top: max(72px, calc(env(safe-area-inset-top) + 12px));
+        right: 12px;
+        left: auto;
+        bottom: auto;
+        z-index: 90;
+        flex-direction: column-reverse;
+        align-items: flex-end;
+      }
+      .mfe-float-actions {
+        justify-items: end;
+        transform-origin: top right;
+        max-height: calc(100vh - max(72px, calc(env(safe-area-inset-top) + 12px)) - 72px);
+        overflow: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      .ds-auth-logout {
+        position: fixed !important;
+        top: max(126px, calc(env(safe-area-inset-top) + 66px)) !important;
+        right: 12px !important;
+        left: auto !important;
+        bottom: auto !important;
+        z-index: 89;
+      }
+      body:has(.mfe-float-buttons.is-open) .ds-auth-logout {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-6px);
+      }
+      .mfe-playgrounds-open .mfe-float-buttons,
+      .mfe-playgrounds-open .ds-auth-logout {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-6px);
+      }
+    }
     @media (max-width: 900px) {
       .mfe-playgrounds-drawer {
         width: calc(100vw - 12px);
@@ -1036,7 +1085,10 @@
       }
       .mfe-float-buttons {
         right: 12px;
-        bottom: max(12px, env(safe-area-inset-bottom));
+        top: max(68px, calc(env(safe-area-inset-top) + 10px));
+      }
+      .ds-auth-logout {
+        top: max(118px, calc(env(safe-area-inset-top) + 60px)) !important;
       }
     }
     @media (prefers-reduced-motion: reduce) {
