@@ -16,8 +16,8 @@ require("dotenv").config({
 module.exports = (webpackConfigEnv, argv) => {
   const orgName = "org";
   const authProxyTarget = process.env.AUTH_BASE_URL || process.env.API_BASE_URL || "";
-  const toggleProxyTarget =
-    process.env.MFE_TOGGLE_BASE_URL || process.env.API_BASE_URL || process.env.AUTH_BASE_URL || "";
+  const toggleProxyTarget = process.env.MFE_TOGGLE_BASE_URL || "";
+  let localDisabledApps = [];
   const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
   const uiKitCssPath = path.resolve(__dirname, "public/ui-kit.css");
   const rootConfigCssVersion = (() => {
@@ -100,6 +100,46 @@ module.exports = (webpackConfigEnv, argv) => {
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
       },
+      setupMiddlewares: (middlewares, devServer) => {
+        if (typeof defaultConfig.devServer?.setupMiddlewares === "function") {
+          middlewares = defaultConfig.devServer.setupMiddlewares(middlewares, devServer);
+        }
+
+        if (!toggleProxyTarget && devServer?.app) {
+          devServer.app.get("/api/mfe-toggle", (_req, res) => {
+            res.json({ disabled: localDisabledApps });
+          });
+
+          devServer.app.post("/api/mfe-toggle", (req, res) => {
+            let rawBody = "";
+
+            req.on("data", (chunk) => {
+              rawBody += String(chunk);
+            });
+
+            req.on("end", () => {
+              try {
+                const payload = rawBody ? JSON.parse(rawBody) : {};
+                const disabled = Array.isArray(payload?.disabled)
+                  ? payload.disabled.filter((item) => typeof item === "string")
+                  : null;
+
+                if (!disabled) {
+                  res.status(400).json({ error: "disabled must be an array of app names" });
+                  return;
+                }
+
+                localDisabledApps = disabled;
+                res.json({ disabled: localDisabledApps });
+              } catch {
+                res.status(400).json({ error: "invalid JSON payload" });
+              }
+            });
+          });
+        }
+
+        return middlewares;
+      },
       ...((authProxyTarget || toggleProxyTarget)
         ? {
             proxy: {
@@ -133,6 +173,15 @@ module.exports = (webpackConfigEnv, argv) => {
                           JSON.stringify({ error: "mfe-toggle proxy unavailable" })
                         );
                       },
+                    },
+                  }
+                : {}),
+              ...(authProxyTarget
+                ? {
+                    "/api/kahoot-mini": {
+                      target: authProxyTarget,
+                      changeOrigin: true,
+                      secure: false,
                     },
                   }
                 : {}),

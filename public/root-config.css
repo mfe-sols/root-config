@@ -712,7 +712,7 @@
       position: relative;
       overflow: hidden;
       background: #ffffff;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      /* box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); */
       transition: transform 200ms ease, box-shadow 200ms ease;
     }
     .mfe-app-card::after {

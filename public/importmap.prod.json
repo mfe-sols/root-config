@@ -12,6 +12,8 @@
     "@org/playground-react": "https://playground-react-gold.vercel.app/org-playground.js",
     "@org/playground-vanilla": "https://playground-vanilla.vercel.app/org-playground-vanilla.js",
     "@org/playground-svelte": "https://playground-svelte.vercel.app/org-playground-svelte.js",
+    "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
+    "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",
     "@org/simple-vanilla": "https://cdn.yourdomain.com/org-simple-vanilla.js"
   }
 }

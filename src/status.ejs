@@ -207,6 +207,17 @@
         background: rgba(255, 255, 255, 0.9);
         color: var(--text);
       }
+      .card-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .card-actions a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+      }
 
       .status {
         display: inline-flex;
@@ -856,6 +867,7 @@
           "status.cardDisabledByServer": "Disabled by server",
           "status.cardEnable": "Enable",
           "status.cardDisable": "Disable",
+          "status.cardStartGame": "Start game",
           "status.stateActive": "Active",
           "status.stateDown": "Down",
           "status.stateDisabled": "Disabled",
@@ -946,6 +958,7 @@
           "status.cardDisabledByServer": "Bị tắt bởi server",
           "status.cardEnable": "Bật",
           "status.cardDisable": "Tắt",
+          "status.cardStartGame": "Start game",
           "status.stateActive": "Hoạt động",
           "status.stateDown": "Đang lỗi",
           "status.stateDisabled": "Đã tắt",
@@ -1020,6 +1033,14 @@
       const localModules = [
         { name: "@org/header-react", url: "http://localhost:9012/org-header-react.js" },
         { name: "@org/footer-react", url: "http://localhost:9013/org-footer-react.js" },
+        {
+          name: "@org/mfe-kahoot-mini-react",
+          url: "http://localhost:19113/org-mfe-kahoot-mini-react.js",
+        },
+        {
+          name: "@org/mfe-mgn-kahoot-mini-react",
+          url: "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
+        },
         { name: "@org/catalog", url: "http://localhost:9001/org-catalog.js" },
         { name: "@org/profile-vue", url: "http://localhost:9002/profile-vue.js" },
         { name: "@org/dashboard-vue", url: "http://localhost:9004/dashboard-vue.js" },
@@ -1094,6 +1115,16 @@
       const bridgeTargets = [
         { name: "@org/header-react", origin: "http://localhost:9012", url: "http://localhost:9012/?mfe-bridge=1" },
         { name: "@org/footer-react", origin: "http://localhost:9013", url: "http://localhost:9013/?mfe-bridge=1" },
+        {
+          name: "@org/mfe-kahoot-mini-react",
+          origin: "http://localhost:19113",
+          url: "http://localhost:19113/?mfe-bridge=1",
+        },
+        {
+          name: "@org/mfe-mgn-kahoot-mini-react",
+          origin: "http://localhost:19114",
+          url: "http://localhost:19114/?mfe-bridge=1",
+        },
         { name: "@org/catalog", origin: "http://localhost:9001", url: "http://localhost:9001/?mfe-bridge=1" },
         { name: "@org/profile-vue", origin: "http://localhost:9002", url: "http://localhost:9002/?mfe-bridge=1" },
         { name: "@org/dashboard-vue", origin: "http://localhost:9004", url: "http://localhost:9004/?mfe-bridge=1" },
@@ -1819,6 +1850,17 @@
             const toggle = document.createElement("button");
             toggle.className = "toggle";
             toggle.setAttribute("data-name", mod.name);
+            const actionRow = document.createElement("div");
+            actionRow.className = "card-actions";
+            let startGameLink = null;
+            if (mod.name === "@org/mfe-kahoot-mini-react" || mod.name === "@org/mfe-mgn-kahoot-mini-react") {
+              startGameLink = document.createElement("a");
+              startGameLink.className = "secondary";
+              startGameLink.href =
+                mod.name === "@org/mfe-mgn-kahoot-mini-react" ? "/mgn-kahoot-mini" : "/";
+              startGameLink.textContent = t("status.cardStartGame");
+              actionRow.appendChild(startGameLink);
+            }
             const modeRow = document.createElement("div");
             modeRow.className = "card-controls";
             const modeLabel = document.createElement("label");
@@ -1896,9 +1938,12 @@
             card.appendChild(urlEl);
             card.appendChild(statusEl);
             card.appendChild(modeRow);
+            if (startGameLink) {
+              card.appendChild(actionRow);
+            }
             card.appendChild(toggle);
             grid.appendChild(card);
-            entry = { card, nameEl, urlEl, statusEl, toggle, modeLabel, modeSelect };
+            entry = { card, nameEl, urlEl, statusEl, toggle, modeLabel, modeSelect, startGameLink };
             cards.set(mod.name, entry);
           }
           mod.__state = isDisabled ? "disabled" : mod.__state || "pending";
@@ -1919,6 +1964,20 @@
                 opt.textContent = t(key);
               }
             });
+          }
+          if (entry.startGameLink) {
+            entry.startGameLink.textContent = t("status.cardStartGame");
+            entry.startGameLink.href =
+              mod.name === "@org/mfe-mgn-kahoot-mini-react" ? "/mgn-kahoot-mini" : "/";
+            if (isDisabled) {
+              entry.startGameLink.setAttribute("aria-disabled", "true");
+              entry.startGameLink.style.pointerEvents = "none";
+              entry.startGameLink.style.opacity = "0.55";
+            } else {
+              entry.startGameLink.removeAttribute("aria-disabled");
+              entry.startGameLink.style.pointerEvents = "";
+              entry.startGameLink.style.opacity = "";
+            }
           }
           mod.__el = entry.statusEl;
         });

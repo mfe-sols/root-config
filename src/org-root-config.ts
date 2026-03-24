@@ -9,6 +9,7 @@ import layoutHeader from "./layout/layout-header.html";
 import playgroundRoutes from "./layout/routes-playgrounds.html";
 import dashboardRoute from "./layout/routes-dashboard.html";
 import authRoute from "./layout/routes-auth.html";
+import mgnKahootMiniRoute from "./layout/routes-mgn-kahoot-mini.html";
 import defaultRoute from "./layout/routes-default.html";
 import {
   applyI18nToDom,
@@ -92,6 +93,8 @@ const toggleUrl = "/api/mfe-toggle";
 const localAppUrls: Record<string, string> = {
   "@org/header-react": "http://localhost:9012/org-header-react.js",
   "@org/footer-react": "http://localhost:9013/org-footer-react.js",
+  "@org/mfe-kahoot-mini-react": "http://localhost:19113/org-mfe-kahoot-mini-react.js",
+  "@org/mfe-mgn-kahoot-mini-react": "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
   "@org/catalog": "http://localhost:9001/org-catalog.js",
   "@org/profile-vue": "http://localhost:9002/profile-vue.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
@@ -594,6 +597,7 @@ const microfrontendLayout = applyLayoutSection(
     ["ROUTE_PLAYGROUNDS", playgroundRoutes],
     ["ROUTE_DASHBOARD", dashboardRoute],
     ["ROUTE_AUTH", authRoute],
+    ["ROUTE_MGN_KAHOOT_MINI", mgnKahootMiniRoute],
     ["ROUTE_DEFAULT", defaultRoute],
   ].reduce(
     (acc, [marker, content]) => applyLayoutSection(acc, marker, content),
@@ -607,6 +611,8 @@ const routes = constructRoutes(microfrontendLayout);
 const systemFirstApps = new Set<string>([
   "@org/header-react",
   "@org/footer-react",
+  "@org/mfe-kahoot-mini-react",
+  "@org/mfe-mgn-kahoot-mini-react",
   "@org/catalog",
   "@org/playground-react",
   "@org/checkout-angular",
@@ -615,6 +621,10 @@ const systemFirstApps = new Set<string>([
   "@org/playground-vue",
   "@org/playground-svelte",
   "@org/simple-vanilla",
+]);
+const forceSystemJsApps = new Set<string>([
+  "@org/mfe-kahoot-mini-react",
+  "@org/mfe-mgn-kahoot-mini-react",
 ]);
 const systemFirstUmdGlobals: Record<string, string> = {
   "@org/playground-vue": "playgroundVue",
@@ -652,29 +662,44 @@ const allApplications = constructApplications({
     if (systemFirstApps.has(name)) {
       const localUrl = localAppUrls[name];
       const preferredImport = isLocalhost && localUrl
-        ? detectModuleFormat(localUrl).then((format) => {
+        ? (() => {
             const importUrl = withCacheBust(localUrl);
-            if (format === "system") {
+            if (forceSystemJsApps.has(name)) {
               return systemImportByUrl(importUrl);
             }
-            if (format === "umd") {
-              return loadUmdScript(importUrl).then(() => {
-                const globalName = systemFirstUmdGlobals[name] || name;
-                const mod = (window as any)[globalName] ?? (globalThis as any)[globalName];
-                if (!mod) {
-                  throw new Error(
-                    `[root-config] UMD app ${name} did not expose a global (${globalName})`
-                  );
-                }
-                return mod;
-              });
-            }
-            if (format === "esm") {
-              return importByUrl(importUrl);
-            }
-            // Unknown format: try native import first to avoid SystemJS parse failure on ESM.
-            return importByUrl(importUrl).catch(() => systemImportByUrl(importUrl));
-          })
+            return detectModuleFormat(localUrl).then((format) => {
+              if (format === "system") {
+                return systemImportByUrl(importUrl);
+              }
+              if (format === "umd") {
+                return loadUmdScript(importUrl).then(() => {
+                  const globalName = systemFirstUmdGlobals[name] || name;
+                  const mod = (window as any)[globalName] ?? (globalThis as any)[globalName];
+                  if (!mod) {
+                    throw new Error(
+                      `[root-config] UMD app ${name} did not expose a global (${globalName})`
+                    );
+                  }
+                  return mod;
+                });
+              }
+              if (format === "esm") {
+                return importByUrl(importUrl);
+              }
+              // Unknown format (often due to dev-server Range/CORS limitations): probe UMD global first,
+              // then try native import, then SystemJS as the final fallback.
+              return loadUmdScript(importUrl)
+                .then(() => {
+                  const globalName = systemFirstUmdGlobals[name] || name;
+                  const mod = (window as any)[globalName] ?? (globalThis as any)[globalName];
+                  if (mod) {
+                    return mod;
+                  }
+                  throw new Error(`[root-config] Unknown-format app ${name} did not expose UMD global`);
+                })
+                .catch(() => importByUrl(importUrl).catch(() => systemImportByUrl(importUrl)));
+            });
+          })()
         : window.System?.import
           ? (window.System.import(name) as Promise<any>)
           : (import(/* webpackIgnore: true */ name) as Promise<any>);
