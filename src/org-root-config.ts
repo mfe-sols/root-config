@@ -484,6 +484,7 @@ const watchServerToggle = () => {
   let inFlight = false;
   const intervalMs = 5000;
   const hiddenIntervalMs = 15000;
+  let applyState: ((nextState: ToggleState) => void) | null = null;
 
   const schedule = (ms: number) => {
     if (timer) window.clearTimeout(timer);
@@ -505,8 +506,27 @@ const watchServerToggle = () => {
       .then((data) => {
         if (!data || typeof data !== "object") return;
         const next = JSON.stringify(data);
-        if (last && next !== last) {
-          safeReload();
+        if (last && next !== last && applyState) {
+          applyState(
+            normalizeDisabledModeConfig((data as { disabledMode?: DisabledModeConfig }).disabledMode)
+              ? {
+                  disabled: Array.isArray((data as { disabled?: unknown }).disabled)
+                    ? (data as { disabled: unknown[] }).disabled.filter(
+                        (name): name is string => typeof name === "string"
+                      )
+                    : [],
+                  disabledMode: normalizeDisabledModeConfig(
+                    (data as { disabledMode?: DisabledModeConfig }).disabledMode
+                  ),
+                }
+              : {
+                  disabled: Array.isArray((data as { disabled?: unknown }).disabled)
+                    ? (data as { disabled: unknown[] }).disabled.filter(
+                        (name): name is string => typeof name === "string"
+                      )
+                    : [],
+                }
+          );
         }
         last = next;
       })
@@ -526,7 +546,12 @@ const watchServerToggle = () => {
   };
 
   document.addEventListener("visibilitychange", onVisibility);
-  poll();
+  return {
+    start(nextApplyState: (nextState: ToggleState) => void) {
+      applyState = nextApplyState;
+      poll();
+    },
+  };
 };
 
 const watchAuthBuild = () => {
@@ -1000,13 +1025,30 @@ const bootstrap = () => {
   persistThemeMode();
   let applications = allApplications;
   const localDisabledApps = getDisabledApps();
+  const applyToggleState = (serverToggle: ToggleState) => {
+    const latestLocalDisabledApps = getDisabledApps();
+    const serverDisabledApps = new Set<string>(
+      (serverToggle.disabled || []).filter((name): name is string => typeof name === "string")
+    );
+    const disabledApps = sanitizeDisabledApps([
+      ...Array.from(serverDisabledApps),
+      ...Array.from(latestLocalDisabledApps),
+    ]);
+    setRuntimeDisabledApps(disabledApps);
+    emitDisabledApps(serverDisabledApps, latestLocalDisabledApps, serverToggle.disabledMode);
+  };
+  const serverToggleWatcher = watchServerToggle();
 
   // Cross-tab sync: listen for mfe-disabled changes from other tabs (e.g. status.html)
   // so that toggling a module in the status page triggers an immediate reload.
   // Must be registered on ALL environments (localhost + production).
   window.addEventListener("storage", (event) => {
     if (event.key === "mfe-disabled" || event.key === "mfe-disabled-mode") {
-      safeReload();
+      if (isLocalhost) {
+        safeReload();
+        return;
+      }
+      void getServerToggleState().then(applyToggleState);
     }
   });
   try {
@@ -1018,7 +1060,11 @@ const bootstrap = () => {
         typeof data === "object" &&
         (data.type === "mfe-toggle" || data.type === "mfe-disabled-mode")
       ) {
-        safeReload();
+        if (isLocalhost) {
+          safeReload();
+          return;
+        }
+        void getServerToggleState().then(applyToggleState);
       }
     };
   } catch {
@@ -1045,7 +1091,7 @@ const bootstrap = () => {
       applications.forEach((app) => registerApplication(app));
       layoutEngine.activate();
       start();
-      watchServerToggle();
+      serverToggleWatcher.start(applyToggleState);
     });
     return;
   }
@@ -1070,7 +1116,7 @@ const bootstrap = () => {
     applications.forEach((app) => registerApplication(app));
     layoutEngine.activate();
     start();
-    watchServerToggle();
+    serverToggleWatcher.start(applyToggleState);
   }
 
   const runAvailabilityCheck = () => {
@@ -1106,7 +1152,7 @@ const bootstrap = () => {
         applications.forEach((app) => registerApplication(app));
         layoutEngine.activate();
         start();
-        watchServerToggle();
+        serverToggleWatcher.start(applyToggleState);
         return;
       }
       if (
