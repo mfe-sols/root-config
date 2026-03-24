@@ -6,7 +6,7 @@
     <title>Orchestra Status</title>
     <script>
       (function () {
-        const AUTH_BASE = "<%= process.env.AUTH_BASE_URL || '' %>";
+        const AUTH_BASE = "<%= authBaseUrl || '' %>";
         const loginUrl = new URL("/auth/login", window.location.origin);
         loginUrl.searchParams.set("returnTo", "/status.html");
         const redirectToLogin = () => {

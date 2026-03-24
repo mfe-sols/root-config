@@ -13,9 +13,27 @@ require("dotenv").config({
   override: true,
 });
 
+const normalizeBaseUrl = (value) => {
+  if (!value || typeof value !== "string") return "";
+  return value.trim().replace(/\/+$/, "");
+};
+
+const isLocalBaseUrl = (value) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(value);
+
 module.exports = (webpackConfigEnv, argv) => {
   const orgName = "org";
-  const authProxyTarget = process.env.AUTH_BASE_URL || process.env.API_BASE_URL || "";
+  const isLocalBuild = Boolean(webpackConfigEnv && webpackConfigEnv.isLocal);
+  const configuredApiBaseUrl = normalizeBaseUrl(
+    process.env.AUTH_BASE_URL || process.env.API_BASE_URL || ""
+  );
+  const publicApiBaseUrl =
+    configuredApiBaseUrl && (!isLocalBaseUrl(configuredApiBaseUrl) || isLocalBuild)
+      ? configuredApiBaseUrl
+      : isLocalBuild
+      ? "http://localhost:7272"
+      : "";
+  const authProxyTarget = publicApiBaseUrl;
   const toggleProxyTarget = process.env.MFE_TOGGLE_BASE_URL || "";
   let localDisabledApps = [];
   const rootConfigCssPath = path.resolve(__dirname, "public/root-config.css");
@@ -198,7 +216,10 @@ module.exports = (webpackConfigEnv, argv) => {
           process.env.MFE_TOGGLE_URL || ""
         ),
         "process.env.AUTH_BASE_URL": JSON.stringify(
-          process.env.AUTH_BASE_URL || ""
+          publicApiBaseUrl
+        ),
+        "process.env.API_BASE_URL": JSON.stringify(
+          publicApiBaseUrl
         ),
       }),
       new HtmlWebpackPlugin({
@@ -206,8 +227,9 @@ module.exports = (webpackConfigEnv, argv) => {
         template: "src/index.ejs",
         watchFiles: [rootConfigCssPath, uiKitCssPath],
         templateParameters: {
-          isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
+          isLocal: isLocalBuild,
           orgName,
+          authBaseUrl: publicApiBaseUrl,
           rootConfigCssVersion,
           uiKitCssVersion,
           deployAssetVersion,
@@ -218,8 +240,9 @@ module.exports = (webpackConfigEnv, argv) => {
         filename: "status.html",
         template: "src/status.ejs",
         templateParameters: {
-          isLocal: webpackConfigEnv && webpackConfigEnv.isLocal,
+          isLocal: isLocalBuild,
           orgName,
+          authBaseUrl: publicApiBaseUrl,
           rootConfigCssVersion,
           uiKitCssVersion,
           deployAssetVersion,
