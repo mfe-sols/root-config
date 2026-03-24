@@ -1331,6 +1331,7 @@ export const initRootConfigShellUi = () => {
   const setPerfHidden = (hidden: boolean) => {
     if (!perfPanelEl) return;
     perfPanelEl.classList.toggle("mfe-perf-panel--hidden", hidden);
+    perfPanelEl.setAttribute("aria-hidden", hidden ? "true" : "false");
     if (UI.perfFab) {
       UI.perfFab.setAttribute("aria-pressed", hidden ? "false" : "true");
     }
