@@ -66,7 +66,7 @@ module.exports = (webpackConfigEnv, argv) => {
     argv,
     disableHtmlGeneration: true,
   });
-  const authWorkspaceEntry = path.resolve(__dirname, "../../libs/auth/dist/index.mjs");
+  const authWorkspaceEntry = path.resolve(__dirname, "../../libs/auth/src/index.ts");
 
   defaultConfig.resolve = defaultConfig.resolve || {};
   defaultConfig.resolve.alias = {

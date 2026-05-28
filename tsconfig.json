@@ -7,7 +7,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
-      "@mfe-sols/auth": ["../../libs/auth/dist/index.d.ts"]
+      "@mfe-sols/auth": ["../../libs/auth/src/index.ts"]
     }
   },
   "include": ["src/**/*"],
