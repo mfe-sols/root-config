@@ -807,7 +807,7 @@ const wrapModuleLifecycles = (appName: string, mod: any) => {
 
 const bootstrap = () => {
   initRootConfigShellUi();
-  initAuthUserSync({ endpoint: AUTH_ME_ENDPOINT, clearOnUnauthorized: false });
+  initAuthUserSync({ endpoint: AUTH_ME_ENDPOINT });
   watchAuthBuild();
   let lastLoggedKey = "";
   const logAuthUser = () => {
