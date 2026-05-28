@@ -6,12 +6,7 @@
     "baseUrl": ".",
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "paths": {
-      "@mfe-sols/auth": [
-        "../../libs/auth/src/index.ts",
-        "node_modules/@mfe-sols/auth/dist/index.d.ts"
-      ]
-    }
+    "paths": {}
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test*"]
