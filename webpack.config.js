@@ -67,11 +67,21 @@ module.exports = (webpackConfigEnv, argv) => {
     disableHtmlGeneration: true,
   });
   const authWorkspaceEntry = path.resolve(__dirname, "../../libs/auth/src/index.ts");
+  const authPackageEntry = (() => {
+    try {
+      return require.resolve("@mfe-sols/auth");
+    } catch {
+      return authWorkspaceEntry;
+    }
+  })();
+  const resolvedAuthEntry = fs.existsSync(authWorkspaceEntry)
+    ? authWorkspaceEntry
+    : authPackageEntry;
 
   defaultConfig.resolve = defaultConfig.resolve || {};
   defaultConfig.resolve.alias = {
     ...(defaultConfig.resolve.alias || {}),
-    "@mfe-sols/auth": authWorkspaceEntry,
+    "@mfe-sols/auth": resolvedAuthEntry,
   };
 
   // Bundle @mfe-sols/* shared libs (not external)
