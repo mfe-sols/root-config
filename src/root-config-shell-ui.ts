@@ -2,8 +2,8 @@ import { navigateToUrl } from "single-spa";
 import {
   getCurrentUser,
   isAuthenticated,
+  logoutCurrentSession,
   subscribeAuthChange,
-  writeAuthState,
 } from "@mfe-sols/auth";
 import {
   defineMaintenanceCardElement,
@@ -505,6 +505,11 @@ export const initRootConfigShellUi = () => {
   const getFloatButtonsPositionStorageKey = () =>
     `${FLOAT_BUTTONS_POS_KEY}:${isCompactFloatButtonsViewport() ? "compact" : "desktop"}`;
 
+  const shouldUseDefaultFloatButtonsPosition = () => {
+    if (typeof window === "undefined") return false;
+    return window.location.pathname.startsWith("/budget-plans");
+  };
+
   const getFloatButtonsPositionBounds = () => {
     if (!UI.floatButtons) {
       return { minLeft: 8, maxLeft: 8, minTop: 8, maxTop: 8 };
@@ -531,6 +536,7 @@ export const initRootConfigShellUi = () => {
   };
 
   const readFloatButtonsPosition = () => {
+    if (shouldUseDefaultFloatButtonsPosition()) return null;
     try {
       const raw =
         window.localStorage.getItem(getFloatButtonsPositionStorageKey()) ??
@@ -1170,6 +1176,7 @@ export const initRootConfigShellUi = () => {
   window.addEventListener("single-spa:routing-event", () => {
     if (floatButtonsOpen) setFloatButtonsOpen(false);
     if (playgroundsOpen) setPlaygroundsOpen(false);
+    applyFloatButtonsPosition();
     applyDisabledState(readDisabled());
     applyAuthState();
   });
@@ -1199,10 +1206,10 @@ export const initRootConfigShellUi = () => {
 
   if (UI.authLogout) {
     UI.authLogout.addEventListener("click", () => {
-      writeAuthState(null);
       const url = new URL("/auth/login", window.location.origin);
       url.searchParams.set("returnTo", "/");
-      window.location.assign(`${url.pathname}${url.search}`);
+      void logoutCurrentSession({ clearSessionFirst: true, keepalive: true }).catch(() => undefined);
+      window.location.replace(`${url.pathname}${url.search}`);
     });
   }
 

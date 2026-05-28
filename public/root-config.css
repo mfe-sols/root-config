@@ -260,13 +260,16 @@
       display: grid;
       gap: 8px;
       justify-items: end;
+      max-height: 0;
+      overflow: hidden;
       opacity: 0;
       pointer-events: none;
       transform: translateY(8px) scale(0.96);
       transform-origin: bottom right;
-      transition: opacity 180ms ease, transform 180ms ease;
+      transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
     }
     .mfe-float-buttons.is-open .mfe-float-actions {
+      max-height: min(320px, calc(100vh - 120px));
       opacity: 1;
       pointer-events: auto;
       transform: translateY(0) scale(1);
@@ -318,6 +321,13 @@
       opacity: 0;
       pointer-events: none;
       transform: translateY(8px);
+    }
+    body:has(.mfe-app-card[data-app="@org/mfe-budget-plans"]) .mfe-float-buttons {
+      top: auto !important;
+      /* right: 16px !important; */
+      bottom: 18px !important;
+      /* left: auto !important; */
+      transform: none !important;
     }
     .ds-theme-toggle {
       font-size: 16px;
@@ -735,6 +745,19 @@
     .mfe-app-card:hover::after {
       opacity: 1;
     }
+    .mfe-app-card[data-app="@org/mfe-budget-plans"] {
+      overflow: visible;
+      background: transparent;
+      box-shadow: none;
+      transition: none;
+    }
+    .mfe-app-card[data-app="@org/mfe-budget-plans"]::after {
+      content: none;
+    }
+    .mfe-app-card[data-app="@org/mfe-budget-plans"]:hover {
+      transform: none;
+      box-shadow: none;
+    }
     .mfe-app-card__header {
       display: flex;
       align-items: baseline;
@@ -946,6 +969,10 @@
         rgba(129, 140, 248, 0.18),
         transparent 55%
       );
+    }
+    [data-theme="dark"] .mfe-app-card[data-app="@org/mfe-budget-plans"] {
+      background: transparent;
+      box-shadow: none;
     }
     [data-theme="dark"] .mfe-app-card__title {
       color: #f9fafb;

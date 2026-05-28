@@ -8,6 +8,7 @@ import microfrontendLayoutTemplate from "./microfrontend-layout.html";
 import layoutHeader from "./layout/layout-header.html";
 import playgroundRoutes from "./layout/routes-playgrounds.html";
 import dashboardRoute from "./layout/routes-dashboard.html";
+import budgetPlansRoute from "./layout/routes-budget-plans.html";
 import authRoute from "./layout/routes-auth.html";
 import mgnKahootMiniRoute from "./layout/routes-mgn-kahoot-mini.html";
 import defaultRoute from "./layout/routes-default.html";
@@ -27,6 +28,8 @@ import {
   isAuthenticated,
   subscribeAuthChange,
 } from "@mfe-sols/auth";
+
+const AUTH_ME_ENDPOINT = "/auth/me";
 
 /** Escape HTML special chars to prevent XSS when building DOM strings. */
 const escapeHtml = (str: string) =>
@@ -98,6 +101,7 @@ const localAppUrls: Record<string, string> = {
   "@org/catalog": "http://localhost:9001/org-catalog.js",
   "@org/profile-vue": "http://localhost:9002/profile-vue.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
+  "@org/mfe-budget-plans": "http://localhost:9016/org-mfe-budget-plans.js",
   "@org/checkout-angular": "http://localhost:9003/main.js",
   "@org/auth-angular": "http://localhost:9010/main.js",
   "@org/playground-angular": "http://localhost:9005/main.js",
@@ -111,6 +115,7 @@ const localAppUrls: Record<string, string> = {
 const AUTH_LOGIN_PATH = "/auth/login";
 const AUTH_RETURN_PARAM = "returnTo";
 const AUTH_REQUIRED_PREFIXES = [
+  "/budget-plans",
   "/playground-angular",
   "/playground-react",
   "/playground-vue",
@@ -621,6 +626,7 @@ const microfrontendLayout = applyLayoutSection(
   [
     ["ROUTE_PLAYGROUNDS", playgroundRoutes],
     ["ROUTE_DASHBOARD", dashboardRoute],
+    ["ROUTE_BUDGET_PLANS", budgetPlansRoute],
     ["ROUTE_AUTH", authRoute],
     ["ROUTE_MGN_KAHOOT_MINI", mgnKahootMiniRoute],
     ["ROUTE_DEFAULT", defaultRoute],
@@ -639,6 +645,7 @@ const systemFirstApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/catalog",
+  "@org/mfe-budget-plans",
   "@org/playground-react",
   "@org/checkout-angular",
   "@org/auth-angular",
@@ -800,7 +807,7 @@ const wrapModuleLifecycles = (appName: string, mod: any) => {
 
 const bootstrap = () => {
   initRootConfigShellUi();
-  initAuthUserSync();
+  initAuthUserSync({ endpoint: AUTH_ME_ENDPOINT, clearOnUnauthorized: false });
   watchAuthBuild();
   let lastLoggedKey = "";
   const logAuthUser = () => {
@@ -819,7 +826,7 @@ const bootstrap = () => {
   };
   const logAuthUserWhenReady = () => {
     if (logAuthUser()) return;
-    void fetchCurrentUserCached({ force: true })
+    void fetchCurrentUserCached({ endpoint: AUTH_ME_ENDPOINT, force: true, clearOnUnauthorized: false })
       .then(() => logAuthUser())
       .catch(() => undefined);
     let attempts = 0;
@@ -838,8 +845,14 @@ const bootstrap = () => {
     const parsed = new URL(url, window.location.origin);
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   };
+  let pendingAuthRedirectPath: string | null = null;
   const redirectToLogin = (returnTo: string) => {
-    navigateToUrl(buildLoginUrl(returnTo));
+    const nextPath = buildLoginUrl(returnTo);
+    if (getCurrentPath() === nextPath || pendingAuthRedirectPath === nextPath) {
+      return;
+    }
+    pendingAuthRedirectPath = nextPath;
+    navigateToUrl(nextPath);
   };
   const ensureAuthForPath = (path: string) => {
     if (isAuthenticated()) return;
@@ -859,6 +872,10 @@ const bootstrap = () => {
   });
   subscribeAuthChange(() => {
     logAuthUser();
+    if (isAuthenticated()) {
+      pendingAuthRedirectPath = null;
+      return;
+    }
     if (!isAuthenticated()) {
       ensureAuthForPath(getCurrentPath());
     }
@@ -868,6 +885,7 @@ const bootstrap = () => {
   const setTitleForPath = () => {
     const path = window.location.pathname.replace(/\/+$/, "");
     const titleMap: Record<string, string> = {
+      "/budget-plans": "Budget Plans",
       "/playground-angular": "Playground Angular",
       "/playground-react": "Playground React",
       "/playground-vue": "Playground Vue",
@@ -886,6 +904,11 @@ const bootstrap = () => {
     }
   };
   window.addEventListener("single-spa:routing-event", setTitleForPath);
+  window.addEventListener("single-spa:routing-event", () => {
+    if (pendingAuthRedirectPath && getCurrentPath() === pendingAuthRedirectPath) {
+      pendingAuthRedirectPath = null;
+    }
+  });
   window.addEventListener("popstate", setTitleForPath);
   setTitleForPath();
 
@@ -1024,6 +1047,7 @@ const bootstrap = () => {
   applySystemTheme();
   persistThemeMode();
   let applications = allApplications;
+  const isAuthBootstrapPath = isAuthPath(window.location.pathname || "/");
   const localDisabledApps = getDisabledApps();
   const applyToggleState = (serverToggle: ToggleState) => {
     const latestLocalDisabledApps = getDisabledApps();
@@ -1086,6 +1110,28 @@ const bootstrap = () => {
         localDisabledApps,
         serverToggle.disabledMode
       );
+      applications = allApplications;
+      const layoutEngine = constructLayoutEngine({ routes, applications });
+      applications.forEach((app) => registerApplication(app));
+      layoutEngine.activate();
+      start();
+      serverToggleWatcher.start(applyToggleState);
+    });
+    return;
+  }
+
+  if (isAuthBootstrapPath) {
+    getServerToggleState().then((serverToggle) => {
+      const serverDisabledApps = new Set<string>(
+        (serverToggle.disabled || []).filter((name): name is string => typeof name === "string")
+      );
+      const disabledApps = sanitizeDisabledApps([
+        ...Array.from(serverDisabledApps),
+        ...Array.from(localDisabledApps),
+      ]);
+      setRuntimeDisabledApps(disabledApps);
+      emitDisabledApps(serverDisabledApps, localDisabledApps, serverToggle.disabledMode);
+      currentAvailableApps = null;
       applications = allApplications;
       const layoutEngine = constructLayoutEngine({ routes, applications });
       applications.forEach((app) => registerApplication(app));

@@ -66,8 +66,13 @@ module.exports = (webpackConfigEnv, argv) => {
     argv,
     disableHtmlGeneration: true,
   });
+  const authWorkspaceEntry = path.resolve(__dirname, "../../libs/auth/dist/index.mjs");
 
   defaultConfig.resolve = defaultConfig.resolve || {};
+  defaultConfig.resolve.alias = {
+    ...(defaultConfig.resolve.alias || {}),
+    "@mfe-sols/auth": authWorkspaceEntry,
+  };
 
   // Bundle @mfe-sols/* shared libs (not external)
   const baseExternals = defaultConfig.externals;

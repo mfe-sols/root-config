@@ -28,7 +28,7 @@
         const checkCookieSession = () => {
           if (!AUTH_BASE) return Promise.resolve(false);
           const base = AUTH_BASE.replace(/\/+$/, "");
-          return fetch(`${base}/api/auth/me`, {
+          return fetch(`${base}/auth/me`, {
             method: "GET",
             credentials: "include",
           })
@@ -1044,6 +1044,7 @@
         { name: "@org/catalog", url: "http://localhost:9001/org-catalog.js" },
         { name: "@org/profile-vue", url: "http://localhost:9002/profile-vue.js" },
         { name: "@org/dashboard-vue", url: "http://localhost:9004/dashboard-vue.js" },
+        { name: "@org/mfe-budget-plans", url: "http://localhost:9016/org-mfe-budget-plans.js" },
         { name: "@org/checkout-angular", url: "http://localhost:9003/main.js" },
         { name: "@org/auth-angular", url: "http://localhost:9010/main.js" },
         {
@@ -1128,6 +1129,7 @@
         { name: "@org/catalog", origin: "http://localhost:9001", url: "http://localhost:9001/?mfe-bridge=1" },
         { name: "@org/profile-vue", origin: "http://localhost:9002", url: "http://localhost:9002/?mfe-bridge=1" },
         { name: "@org/dashboard-vue", origin: "http://localhost:9004", url: "http://localhost:9004/?mfe-bridge=1" },
+        { name: "@org/mfe-budget-plans", origin: "http://localhost:9016", url: "http://localhost:9016/?mfe-bridge=1" },
         { name: "@org/checkout-angular", origin: "http://localhost:4200", url: "http://localhost:4200/?mfe-bridge=1" },
         { name: "@org/auth-angular", origin: "http://localhost:9010", url: "http://localhost:9010/?mfe-bridge=1" },
         { name: "@org/playground-angular", origin: "http://localhost:9005", url: "http://localhost:9005/?mfe-bridge=1" },
