@@ -69,10 +69,6 @@ module.exports = (webpackConfigEnv, argv) => {
  
 
   defaultConfig.resolve = defaultConfig.resolve || {};
-  defaultConfig.resolve.alias = {
-    ...(defaultConfig.resolve.alias || {}),
-    "@mfe-sols/auth": resolvedAuthEntry,
-  };
 
   // Bundle @mfe-sols/* shared libs (not external)
   const baseExternals = defaultConfig.externals;
