@@ -8,6 +8,28 @@
   <script>
     document.documentElement.classList.add("mfe-shell-booting");
   </script>
+  <script>
+    (function applyInitialShellTheme() {
+      try {
+        var root = document.documentElement;
+        var saved = window.localStorage.getItem("ds-theme");
+        var mode =
+          saved === "dark" || saved === "light"
+            ? saved
+            : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+
+        if (mode === "dark") {
+          root.setAttribute("data-theme", "dark");
+        } else {
+          root.removeAttribute("data-theme");
+        }
+      } catch {
+        // Ignore storage and media-query failures during initial theme bootstrapping.
+      }
+    })();
+  </script>
   <meta name="importmap-type" use-injector />
   <!-- If you wish to turn off import-map-overrides for specific environments (prod), uncomment the line below -->
   <!-- More info at https://github.com/single-spa/import-map-overrides/blob/main/docs/configuration.md#domain-list -->

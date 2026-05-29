@@ -2,8 +2,9 @@ import { navigateToUrl } from "single-spa";
 import {
   getCurrentUser,
   isAuthenticated,
-  logoutCurrentSession,
+  readAuthState,
   subscribeAuthChange,
+  writeAuthState,
 } from "@mfe-sols/auth";
 import {
   defineMaintenanceCardElement,
@@ -34,6 +35,7 @@ const shellInitFlag = "__rootConfigShellUiInit";
 const DISABLED_MODE_KEY = "mfe-disabled-mode";
 const PRIMARY_COLOR_KEY = "ds-primary-color";
 const FLOAT_BUTTONS_POS_KEY = "mfe-float-buttons-pos";
+const DEFAULT_AUTH_BASE_URL = "https://api.vopenworld.com";
 
 const AUTH_REQUIRED_APPS = new Set([
   "@org/playground-angular",
@@ -65,6 +67,39 @@ const getElements = <T extends Element>(selector: string) =>
   Array.from(document.querySelectorAll<T>(selector));
 
 const getAppName = (app: string | null) => (app ? app.replace(/^@org\//, "") : "");
+
+const resolveAuthBaseUrl = () => {
+  const metaBase = document
+    .querySelector('meta[name="auth-base-url"]')
+    ?.getAttribute("content")
+    ?.trim();
+  if (metaBase) {
+    return metaBase.replace(/\/+$/, "");
+  }
+
+  const globalBase = (globalThis as { __AUTH_BASE_URL__?: string }).__AUTH_BASE_URL__?.trim();
+  if (globalBase) {
+    return globalBase.replace(/\/+$/, "");
+  }
+
+  return DEFAULT_AUTH_BASE_URL;
+};
+
+const logoutCurrentSessionCompat = async () => {
+  const accessToken = readAuthState()?.tokens?.accessToken?.trim();
+  writeAuthState(null);
+
+  try {
+    await fetch(`${resolveAuthBaseUrl()}/auth/logout`, {
+      method: "POST",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      credentials: "include",
+      keepalive: true,
+    });
+  } catch {
+    // Ignore network failures here because the local session has already been cleared.
+  }
+};
 
 type DisabledMode = "hide" | "placeholder";
 type DisabledModeConfig =
@@ -1208,7 +1243,7 @@ export const initRootConfigShellUi = () => {
     UI.authLogout.addEventListener("click", () => {
       const url = new URL("/auth/login", window.location.origin);
       url.searchParams.set("returnTo", "/");
-      void logoutCurrentSession({ clearSessionFirst: true, keepalive: true }).catch(() => undefined);
+      void logoutCurrentSessionCompat();
       window.location.replace(`${url.pathname}${url.search}`);
     });
   }
