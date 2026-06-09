@@ -881,26 +881,36 @@ const bootstrap = () => {
     }
   });
 
-  const baseTitle = "System Platform";
+  const baseTitle: Record<Locale, string> = {
+    en: "Vtourist · Travel Social Network",
+    vi: "Vtourist · Mạng xã hội du lịch",
+  };
+  const sectionTitleMap: Record<string, Record<Locale, string>> = {
+    "/budget-plans": { en: "Budget Plans", vi: "Kế hoạch chi tiêu" },
+    "/playground-angular": { en: "Playground Angular", vi: "Playground Angular" },
+    "/playground-react": { en: "Playground React", vi: "Playground React" },
+    "/playground-vue": { en: "Playground Vue", vi: "Playground Vue" },
+    "/playground-vanilla": { en: "Playground Vanilla", vi: "Playground Vanilla" },
+    "/playground-svelte": { en: "Playground Svelte", vi: "Playground Svelte" },
+    "/dashboard": { en: "Dashboard", vi: "Bảng điều khiển" },
+  };
+  const resolveTitleLocale = (): Locale => {
+    const current = getStoredLocale();
+    return current === "vi" ? "vi" : "en";
+  };
   const setTitleForPath = () => {
+    const locale = resolveTitleLocale();
+    const base = baseTitle[locale];
     const path = window.location.pathname.replace(/\/+$/, "");
-    const titleMap: Record<string, string> = {
-      "/budget-plans": "Budget Plans",
-      "/playground-angular": "Playground Angular",
-      "/playground-react": "Playground React",
-      "/playground-vue": "Playground Vue",
-      "/playground-vanilla": "Playground Vanilla",
-      "/playground-svelte": "Playground Svelte",
-      "/dashboard": "Dashboard",
-    };
-    const next = titleMap[path];
-    if (next) {
-      document.title = `${next} · ${baseTitle}`;
+    const section = sectionTitleMap[path];
+    if (section) {
+      document.title = `${section[locale]} · ${base}`;
       return;
     }
     // Let microfrontends manage their own titles when no shell title is mapped.
-    if (!document.title || document.title === baseTitle) {
-      document.title = baseTitle;
+    const knownTitles = new Set([baseTitle.en, baseTitle.vi]);
+    if (!document.title || knownTitles.has(document.title)) {
+      document.title = base;
     }
   };
   window.addEventListener("single-spa:routing-event", setTitleForPath);
@@ -932,6 +942,7 @@ const bootstrap = () => {
     document.documentElement.setAttribute("lang", locale);
     applyLocaleToggleButton(locale);
     applyI18nToDom(document);
+    setTitleForPath();
   };
   const initialLocale = initI18nFromStorage();
   applyLocale(initialLocale);
