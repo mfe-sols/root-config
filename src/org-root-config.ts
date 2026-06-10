@@ -629,6 +629,12 @@ const microfrontendLayout = applyLayoutSection(
   layoutHeader
 );
 
+// Prevent Safari from auto-scrolling on history.pushState calls (scrollRestoration
+// defaults to 'auto' in WebKit, causing uncontrolled scroll jumps on SPA navigation).
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
 const routes = constructRoutes(microfrontendLayout);
 const systemFirstApps = new Set<string>([
   "@org/header-react",
@@ -906,6 +912,19 @@ const bootstrap = () => {
   });
   window.addEventListener("popstate", setTitleForPath);
   setTitleForPath();
+
+  // Scroll to top on SPA route change, but only when the pathname actually
+  // changes (not for hash-only updates or same-path re-renders). Using
+  // 'instant' avoids the smooth-scroll animation fighting with page transitions
+  // and is required for correct Safari behavior after scrollRestoration='manual'.
+  let _prevScrollPathname = window.location.pathname;
+  window.addEventListener("single-spa:routing-event", () => {
+    const next = window.location.pathname;
+    if (next !== _prevScrollPathname) {
+      _prevScrollPathname = next;
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  });
 
   const localeToggleButton = document.getElementById("ds-locale-toggle") as HTMLButtonElement | null;
   const getNextLocale = (locale: Locale): Locale => (locale === "en" ? "vi" : "en");
