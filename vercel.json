@@ -55,20 +55,33 @@
     {
       "source": "/.well-known/apple-app-site-association",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/json"
-        }
+        { "key": "Content-Type", "value": "application/json" }
       ]
     },
     {
       "source": "/apple-app-site-association",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/json"
-        }
+        { "key": "Content-Type", "value": "application/json" }
       ]
+    }
+  ],
+  "routes": [
+    {
+      "src": "/\\.well-known/apple-app-site-association",
+      "dest": "/.well-known/apple-app-site-association",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "src": "/apple-app-site-association",
+      "dest": "/apple-app-site-association",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    {
+      "handle": "filesystem"
     }
   ]
 }
