@@ -56,17 +56,9 @@ const safeReload = () => {
 };
 
 const umdApps = {
-  "@org/profile-vue": {
-    url: "//localhost:9002/profile-vue.js",
-    global: "profileVue",
-  },
   "@org/playground-vanilla": {
     url: "//localhost:9008/org-playground-vanilla.js",
     global: "playgroundVanilla",
-  },
-  "@org/simple-vanilla": {
-    url: "//localhost:9009/org-simple-vanilla.js",
-    global: "simpleVanilla",
   },
   "@org/dashboard-vue": {
     url: "//localhost:9004/dashboard-vue.js",
@@ -100,18 +92,14 @@ const localAppUrls: Record<string, string> = {
   "@org/mfe-kahoot-mini-react": "http://localhost:19113/org-mfe-kahoot-mini-react.js",
   "@org/mfe-mgn-kahoot-mini-react": "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
   "@org/vr-res-react": "http://localhost:9014/org-vr-res-react.js",
-  "@org/catalog": "http://localhost:9001/org-catalog.js",
-  "@org/profile-vue": "http://localhost:9002/profile-vue.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
   "@org/mfe-budget-plans": "http://localhost:9016/org-mfe-budget-plans.js",
-  "@org/checkout-angular": "http://localhost:9003/main.js",
   "@org/auth-angular": "http://localhost:9010/main.js",
   "@org/playground-angular": "http://localhost:9005/main.js",
   "@org/playground-vue": "http://localhost:9006/playground-vue.js",
   "@org/playground-react": "http://localhost:9007/org-playground.js",
   "@org/playground-vanilla": "http://localhost:9008/org-playground-vanilla.js",
   "@org/playground-svelte": "http://localhost:9011/org-playground-svelte.js",
-  "@org/simple-vanilla": "http://localhost:9009/org-simple-vanilla.js",
 };
 
 const AUTH_LOGIN_PATH = "/auth/login";
@@ -648,15 +636,7 @@ const systemFirstApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
-  "@org/catalog",
   "@org/mfe-budget-plans",
-  "@org/playground-react",
-  "@org/checkout-angular",
-  "@org/auth-angular",
-  "@org/playground-angular",
-  "@org/playground-vue",
-  "@org/playground-svelte",
-  "@org/simple-vanilla",
 ]);
 const forceSystemJsApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",

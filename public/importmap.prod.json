@@ -3,10 +3,7 @@
     "@org/auth-angular": "https://mfe-auth-angular.vercel.app/main.js",
     "@org/header-react": "https://mfe-header-react.vercel.app/org-header-react.js",
     "@org/footer-react": "https://footer-react-six.vercel.app/org-footer-react.js",
-    "@org/catalog": "https://cdn.yourdomain.com/org-catalog.js",
-    "@org/profile-vue": "https://cdn.yourdomain.com/profile-vue.js",
     "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
-    "@org/checkout-angular": "https://cdn.yourdomain.com/checkout-angular/main.js",
     "@org/playground-angular": "https://playground-angular-khaki.vercel.app/main.js",
     "@org/playground-vue": "https://playground-vue-inky.vercel.app/playground-vue.js",
     "@org/playground-react": "https://playground-react-gold.vercel.app/org-playground.js",
@@ -15,7 +12,6 @@
     "@org/mfe-budget-plans": "https://mfe-budget-plans.vercel.app/org-mfe-budget-plans.js",
     "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
     "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",
-    "@org/vr-res-react": "https://vr-res-react.vercel.app/org-vr-res-react.js",
-    "@org/simple-vanilla": "https://cdn.yourdomain.com/org-simple-vanilla.js"
+    "@org/vr-res-react": "https://vr-res-react.vercel.app/org-vr-res-react.js"
   }
 }
