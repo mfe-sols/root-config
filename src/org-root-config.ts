@@ -643,6 +643,12 @@ const systemFirstApps = new Set<string>([
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
   "@org/mfe-budget-plans",
+  "@org/playground-react",
+  "@org/checkout-angular",
+  "@org/auth-angular",
+  "@org/playground-angular",
+  "@org/playground-vue",
+  "@org/playground-svelte",
 ]);
 const forceSystemJsApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
