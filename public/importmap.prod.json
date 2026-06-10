@@ -15,6 +15,7 @@
     "@org/mfe-budget-plans": "https://mfe-budget-plans.vercel.app/org-mfe-budget-plans.js",
     "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
     "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",
+    "@org/vr-res-react": "https://vr-res-react.vercel.app/org-vr-res-react.js",
     "@org/simple-vanilla": "https://cdn.yourdomain.com/org-simple-vanilla.js"
   }
 }

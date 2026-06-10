@@ -11,6 +11,7 @@ import dashboardRoute from "./layout/routes-dashboard.html";
 import budgetPlansRoute from "./layout/routes-budget-plans.html";
 import authRoute from "./layout/routes-auth.html";
 import mgnKahootMiniRoute from "./layout/routes-mgn-kahoot-mini.html";
+import destinationsRoute from "./layout/routes-destinations.html";
 import defaultRoute from "./layout/routes-default.html";
 import {
   applyI18nToDom,
@@ -98,6 +99,7 @@ const localAppUrls: Record<string, string> = {
   "@org/footer-react": "http://localhost:9013/org-footer-react.js",
   "@org/mfe-kahoot-mini-react": "http://localhost:19113/org-mfe-kahoot-mini-react.js",
   "@org/mfe-mgn-kahoot-mini-react": "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
+  "@org/vr-res-react": "http://localhost:9014/org-vr-res-react.js",
   "@org/catalog": "http://localhost:9001/org-catalog.js",
   "@org/profile-vue": "http://localhost:9002/profile-vue.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
@@ -629,6 +631,7 @@ const microfrontendLayout = applyLayoutSection(
     ["ROUTE_BUDGET_PLANS", budgetPlansRoute],
     ["ROUTE_AUTH", authRoute],
     ["ROUTE_MGN_KAHOOT_MINI", mgnKahootMiniRoute],
+    ["ROUTE_DESTINATIONS", destinationsRoute],
     ["ROUTE_DEFAULT", defaultRoute],
   ].reduce(
     (acc, [marker, content]) => applyLayoutSection(acc, marker, content),
@@ -644,6 +647,7 @@ const systemFirstApps = new Set<string>([
   "@org/footer-react",
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
+  "@org/vr-res-react",
   "@org/catalog",
   "@org/mfe-budget-plans",
   "@org/playground-react",
@@ -657,6 +661,7 @@ const systemFirstApps = new Set<string>([
 const forceSystemJsApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
+  "@org/vr-res-react",
 ]);
 const systemFirstUmdGlobals: Record<string, string> = {
   "@org/playground-vue": "playgroundVue",

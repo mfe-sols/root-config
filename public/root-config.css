@@ -506,6 +506,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      background: #f8fafc;
     }
     main {
       flex: 1;
@@ -517,6 +518,24 @@
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+    body:has(.mfe-app-card[data-app="@org/vr-res-react"]) {
+      background:
+        radial-gradient(circle at top, rgba(14,165,233,0.08), transparent 28%),
+        linear-gradient(180deg, #f8fafc 0%, #eef6fb 100%);
+    }
+    body:has(.mfe-app-card[data-app="@org/vr-res-react"]) main,
+    body:has(.mfe-app-card[data-app="@org/vr-res-react"]) .mfe-home-layout {
+      background: transparent;
+    }
+    [data-theme="dark"] body:has(.mfe-app-card[data-app="@org/vr-res-react"]) {
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.1), transparent 24%),
+        linear-gradient(180deg, #07111e 0%, #081423 42%, #091321 100%);
+    }
+    [data-theme="dark"] body:has(.mfe-app-card[data-app="@org/vr-res-react"]) main,
+    [data-theme="dark"] body:has(.mfe-app-card[data-app="@org/vr-res-react"]) .mfe-home-layout {
+      background: transparent;
     }
     .mfe-playgrounds-fab {
       font-size: 14px;
@@ -596,6 +615,9 @@
       display: inline-flex;
     }
     [data-app-hidden="true"] application {
+      display: none;
+    }
+    .mfe-home-layout [data-app-hidden="true"] {
       display: none;
     }
     .app-maintenance {
@@ -859,6 +881,38 @@
     .mfe-app-card[data-app="@org/mfe-budget-plans"]:hover {
       transform: none;
       box-shadow: none;
+    }
+    .mfe-app-card[data-app="@org/vr-res-react"] {
+      overflow: visible;
+      background: transparent;
+      box-shadow: none;
+      transition: none;
+    }
+    .mfe-app-card[data-app="@org/vr-res-react"]::after {
+      content: none;
+    }
+    .mfe-app-card[data-app="@org/vr-res-react"]:hover {
+      transform: none;
+      box-shadow: none;
+    }
+    .mfe-app-card[data-app="@org/vr-res-react"] .vr-res-root {
+      background: transparent;
+    }
+    /* Align vr-res content with the header/footer width (1440px centered, 16px gutter) */
+    .mfe-app-card[data-app="@org/vr-res-react"] .ds-container {
+      max-width: none;
+      padding-left: max(16px, calc((100% - 1440px) / 2));
+      padding-right: max(16px, calc((100% - 1440px) / 2));
+    }
+    /* On /destinations/* the card is the only content — render full-width, no card chrome */
+    .mfe-home-layout:not(.mfe-home-grid) [data-app="@org/vr-res-react"],
+    .mfe-home-layout > [data-app="@org/vr-res-react"] {
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    body.vr-res-detail-open .mfe-float-buttons {
+      display: none;
     }
     .mfe-app-card__header {
       display: flex;
