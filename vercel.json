@@ -5,7 +5,11 @@
   "rewrites": [
     { "source": "/mfe-toggle.json", "destination": "/api/mfe-toggle" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" },
+    {
+      "source": "/apple-app-site-association",
+      "destination": "/.well-known/apple-app-site-association"
+    }
   ],
   "headers": [
     {
@@ -55,33 +59,20 @@
     {
       "source": "/.well-known/apple-app-site-association",
       "headers": [
-        { "key": "Content-Type", "value": "application/json" }
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
       ]
     },
     {
       "source": "/apple-app-site-association",
       "headers": [
-        { "key": "Content-Type", "value": "application/json" }
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
       ]
-    }
-  ],
-  "routes": [
-    {
-      "src": "/\\.well-known/apple-app-site-association",
-      "dest": "/.well-known/apple-app-site-association",
-      "headers": {
-        "Content-Type": "application/json"
-      }
-    },
-    {
-      "src": "/apple-app-site-association",
-      "dest": "/apple-app-site-association",
-      "headers": {
-        "Content-Type": "application/json"
-      }
-    },
-    {
-      "handle": "filesystem"
     }
   ]
 }
