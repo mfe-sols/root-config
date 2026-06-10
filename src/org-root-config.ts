@@ -92,6 +92,7 @@ const localAppUrls: Record<string, string> = {
   "@org/mfe-kahoot-mini-react": "http://localhost:19113/org-mfe-kahoot-mini-react.js",
   "@org/mfe-mgn-kahoot-mini-react": "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
   "@org/vr-res-react": "http://localhost:9014/org-vr-res-react.js",
+  "@org/mfe-hero-discovery": "http://localhost:9017/org-mfe-hero-discovery.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
   "@org/mfe-budget-plans": "http://localhost:9016/org-mfe-budget-plans.js",
   "@org/auth-angular": "http://localhost:9010/main.js",
@@ -642,6 +643,7 @@ const systemFirstApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
+  "@org/mfe-hero-discovery",
   "@org/mfe-budget-plans",
   "@org/playground-react",
   "@org/checkout-angular",
@@ -654,6 +656,7 @@ const forceSystemJsApps = new Set<string>([
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
+  "@org/mfe-hero-discovery",
 ]);
 const systemFirstUmdGlobals: Record<string, string> = {
   "@org/playground-vue": "playgroundVue",

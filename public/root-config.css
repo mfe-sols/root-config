@@ -895,6 +895,19 @@
       transform: none;
       box-shadow: none;
     }
+    .mfe-app-card[data-app="@org/mfe-hero-discovery"] {
+      overflow: visible;
+      background: transparent;
+      box-shadow: none;
+      transition: none;
+    }
+    .mfe-app-card[data-app="@org/mfe-hero-discovery"]::after {
+      content: none;
+    }
+    .mfe-app-card[data-app="@org/mfe-hero-discovery"]:hover {
+      transform: none;
+      box-shadow: none;
+    }
     .mfe-app-card[data-app="@org/vr-res-react"] .vr-res-root {
       background: transparent;
     }

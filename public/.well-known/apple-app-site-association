@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "RSA36K3GHG.com.mbeorchestra.budgetmobile",
+        "paths": [
+          "/auth/reset-password",
+          "/auth/reset-password/*"
+        ]
+      }
+    ]
+  }
+}
