@@ -10,6 +10,7 @@
     "@org/playground-vanilla": "https://playground-vanilla.vercel.app/org-playground-vanilla.js",
     "@org/playground-svelte": "https://playground-svelte.vercel.app/org-playground-svelte.js",
     "@org/mfe-budget-plans": "https://mfe-budget-plans.vercel.app/org-mfe-budget-plans.js",
+    "@org/mfe-hero-discovery": "https://hero-discovery.vercel.app/org-mfe-hero-discovery.js",
     "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
     "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",
     "@org/vr-res-react": "https://vr-res-react.vercel.app/org-vr-res-react.js"
