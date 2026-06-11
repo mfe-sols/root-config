@@ -607,6 +607,60 @@ const watchAuthBuild = () => {
   poll();
 };
 
+const watchLocalAvailability = () => {
+  if (!isLocalhost) {
+    return {
+      start() {
+        // no-op outside localhost
+      },
+    };
+  }
+
+  let timer: number | null = null;
+  let inFlight = false;
+  let checkAvailability: (() => void) | null = null;
+  const intervalMs = 5000;
+  const hiddenIntervalMs = 15000;
+
+  const schedule = (ms: number) => {
+    if (timer) window.clearTimeout(timer);
+    timer = window.setTimeout(poll, ms);
+  };
+
+  const poll = () => {
+    if (!checkAvailability) return;
+    if (inFlight) {
+      schedule(intervalMs);
+      return;
+    }
+    if (document.hidden) {
+      schedule(hiddenIntervalMs);
+      return;
+    }
+
+    inFlight = true;
+    Promise.resolve()
+      .then(() => checkAvailability?.())
+      .finally(() => {
+        inFlight = false;
+        schedule(intervalMs);
+      });
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      poll();
+    }
+  });
+
+  return {
+    start(nextCheckAvailability: () => void) {
+      checkAvailability = nextCheckAvailability;
+      poll();
+    },
+  };
+};
+
 const applyLayoutSection = (template: string, marker: string, content: string) => {
   const needle = `<!-- ${marker} -->`;
   if (!template.includes(needle)) return template;
@@ -1086,6 +1140,42 @@ const bootstrap = () => {
     emitDisabledApps(serverDisabledApps, latestLocalDisabledApps, serverToggle.disabledMode);
   };
   const serverToggleWatcher = watchServerToggle();
+  const localAvailabilityWatcher = watchLocalAvailability();
+  let hasBootstrappedLocalApps = false;
+  let lastAvailabilitySnapshot: {
+    available: Set<string>;
+    disabled: Set<string>;
+    disabledMode?: ToggleState["disabledMode"];
+  } | null = null;
+
+  const rememberAvailabilitySnapshot = (
+    available: Set<string>,
+    disabled: Set<string>,
+    disabledMode?: ToggleState["disabledMode"]
+  ) => {
+    lastAvailabilitySnapshot = {
+      available: new Set(available),
+      disabled: new Set(disabled),
+      disabledMode,
+    };
+  };
+
+  const availabilitySnapshotChanged = (
+    available: Set<string>,
+    disabled: Set<string>,
+    disabledMode?: ToggleState["disabledMode"]
+  ) => {
+    if (!lastAvailabilitySnapshot) return true;
+
+    return (
+      lastAvailabilitySnapshot.available.size !== available.size ||
+      lastAvailabilitySnapshot.disabled.size !== disabled.size ||
+      JSON.stringify(lastAvailabilitySnapshot.disabledMode || null) !==
+        JSON.stringify(disabledMode || null) ||
+      Array.from(lastAvailabilitySnapshot.available).some((name) => !available.has(name)) ||
+      Array.from(lastAvailabilitySnapshot.disabled).some((name) => !disabled.has(name))
+    );
+  };
 
   // Cross-tab sync: listen for mfe-disabled changes from other tabs (e.g. status.html)
   // so that toggling a module in the status page triggers an immediate reload.
@@ -1186,6 +1276,8 @@ const bootstrap = () => {
     applications.forEach((app) => registerApplication(app));
     layoutEngine.activate();
     start();
+    hasBootstrappedLocalApps = true;
+    rememberAvailabilitySnapshot(cached.available, cached.disabled, cached.disabledMode);
     serverToggleWatcher.start(applyToggleState);
   }
 
@@ -1212,7 +1304,7 @@ const bootstrap = () => {
       currentAvailableApps = availableApps;
       emitAvailability(availableApps);
       emitDisabledApps(serverDisabledApps, localDisabledApps, serverToggle.disabledMode);
-      if (!cached) {
+      if (!hasBootstrappedLocalApps) {
         applications = allApplications.filter(
           (app) =>
             ALWAYS_ON_APPS.has(app.name) ||
@@ -1222,18 +1314,13 @@ const bootstrap = () => {
         applications.forEach((app) => registerApplication(app));
         layoutEngine.activate();
         start();
+        hasBootstrappedLocalApps = true;
+        rememberAvailabilitySnapshot(availableApps, serverDisabledApps, serverToggle.disabledMode);
         serverToggleWatcher.start(applyToggleState);
         return;
       }
-      if (
-        cached &&
-        (cached.available.size !== availableApps.size ||
-          cached.disabled.size !== serverDisabledApps.size ||
-          JSON.stringify(cached.disabledMode || null) !==
-            JSON.stringify(serverToggle.disabledMode || null) ||
-          Array.from(cached.available).some((name) => !availableApps.has(name)) ||
-          Array.from(cached.disabled).some((name) => !serverDisabledApps.has(name)))
-      ) {
+      if (availabilitySnapshotChanged(availableApps, serverDisabledApps, serverToggle.disabledMode)) {
+        rememberAvailabilitySnapshot(availableApps, serverDisabledApps, serverToggle.disabledMode);
         safeReload();
       }
     });
@@ -1242,17 +1329,7 @@ const bootstrap = () => {
   // Cross-tab sync listeners are now registered before the isLocalhost branch
   // (at the top of bootstrap) so they work on all environments.
 
-  if (cached && isLocalhost) {
-    const refreshDelay = Math.max(AVAILABILITY_CACHE_TTL, 15000);
-    window.setTimeout(() => {
-      if (!document.hidden) {
-        runAvailabilityCheck();
-      }
-    }, refreshDelay);
-    return;
-  }
-
-  runAvailabilityCheck();
+  localAvailabilityWatcher.start(runAvailabilityCheck);
 };
 
 bootstrap();

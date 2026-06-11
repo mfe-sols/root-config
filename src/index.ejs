@@ -10,6 +10,7 @@
   <meta name="theme-color" content="#0891b2">
   <script>
     document.documentElement.classList.add("mfe-shell-booting");
+    document.documentElement.classList.add("mfe-shell-route-pending");
   </script>
   <script>
     (function applyInitialShellTheme() {
@@ -34,10 +35,6 @@
     })();
   </script>
   <meta name="importmap-type" use-injector />
-  <!-- If you wish to turn off import-map-overrides for specific environments (prod), uncomment the line below -->
-  <!-- More info at https://github.com/single-spa/import-map-overrides/blob/main/docs/configuration.md#domain-list -->
-  <!-- <meta name="import-map-overrides-domains" content="denylist:prod.example.com" /> -->
-
   <!-- Shared dependencies go into this import map -->
   <script type="injector-importmap">
     {
@@ -48,7 +45,9 @@
   </script>
   <link rel="preload" href="/vendor/single-spa.min.js" as="script">
   <link rel="preload" href="/vendor/system.min.js" as="script">
+  <% if (isLocal) { %>
   <link rel="preload" href="/vendor/import-map-overrides.js" as="script">
+  <% } %>
   <link rel="preload" href="/vendor/import-map-injector.js" as="script">
   <link rel="preload" href="/vendor/zone.umd.js" as="script">
 
@@ -112,7 +111,9 @@
 
   <script src="/vendor/zone.umd.js" defer></script>
   <script src="/vendor/system.min.js" defer></script>
+  <% if (isLocal) { %>
   <script src="/vendor/import-map-overrides.js" defer></script>
+  <% } %>
   <script src="/vendor/import-map-injector.js" defer></script>
   <link rel="stylesheet" href="/ui-kit.css?v=<%= deployAssetVersion || uiKitCssVersion || '' %>" />
   <link rel="stylesheet" href="/root-config.css?v=<%= deployAssetVersion || rootConfigCssVersion || '' %>" />
@@ -154,6 +155,7 @@
         ></circle>
       </svg>
     </div>
+    <span class="mfe-shell-loader__caption" aria-hidden="true">Vtourist</span>
     <span class="mfe-shell-loader__sr">Loading system</span>
   </div>
   <div class="mfe-float-buttons" id="mfe-float-buttons" aria-label="Quick controls">
@@ -289,15 +291,21 @@
       var root = document.documentElement;
       var loaderEl = document.getElementById("mfe-shell-loader");
       var loaderLabelEl = loaderEl ? loaderEl.querySelector(".mfe-shell-loader__sr") : null;
+      var loaderOpenedAt = Date.now();
       var loaderTimeoutId = 0;
+      var loaderMinVisibleTimeoutId = 0;
+      var routeReadyRafId = 0;
       var loaderClosed = false;
+      var loaderHideRequested = false;
+      var loaderMinVisibleMs = 700;
       var loaderRemoveDelayMs = 320;
       var bootStarted = false;
-      var onFirstMount = hideLoader;
-      var onAppChange = hideLoader;
-      var onNoAppChange = hideLoader;
-      var onRoutingEvent = hideLoader;
-      var onMfeError = hideLoader;
+      var routeReadyObserver = null;
+      var onFirstMount = scheduleRouteReadyCheck;
+      var onAppChange = scheduleRouteReadyCheck;
+      var onNoAppChange = scheduleRouteReadyCheck;
+      var onRoutingEvent = scheduleRouteReadyCheck;
+      var onMfeError = handleMfeError;
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -362,6 +370,11 @@
           setLoaderStyleVar("--mfe-shell-loader-speed", clamp(speedMs, 160, 5000) + "ms");
         }
 
+        var minVisibleMs = toNumber(config.minVisibleMs, NaN);
+        if (Number.isFinite(minVisibleMs)) {
+          loaderMinVisibleMs = clamp(minVisibleMs, 0, 3000);
+        }
+
         var accent = sanitizeCssColor(config.accent);
         if (accent) setLoaderStyleVar("--mfe-shell-loader-accent", accent);
 
@@ -403,6 +416,104 @@
         window.removeEventListener("single-spa:no-app-change", onNoAppChange);
         window.removeEventListener("single-spa:routing-event", onRoutingEvent);
         window.removeEventListener("mfe-error", onMfeError);
+        if (routeReadyRafId) {
+          window.cancelAnimationFrame(routeReadyRafId);
+          routeReadyRafId = 0;
+        }
+        if (loaderMinVisibleTimeoutId) {
+          window.clearTimeout(loaderMinVisibleTimeoutId);
+          loaderMinVisibleTimeoutId = 0;
+        }
+        if (routeReadyObserver) {
+          routeReadyObserver.disconnect();
+          routeReadyObserver = null;
+        }
+      }
+
+      function isShellAppContainer(el) {
+        var appName = el && el.getAttribute ? el.getAttribute("data-app") : "";
+        return appName === "@org/header-react" || appName === "@org/footer-react";
+      }
+
+      function getRouteAppContainers() {
+        return Array.prototype.slice.call(document.querySelectorAll("[data-app]")).filter(function (el) {
+          return !isShellAppContainer(el);
+        });
+      }
+
+      function getAppContainerByName(appName) {
+        if (!appName) return null;
+        var containers = Array.prototype.slice.call(document.querySelectorAll("[data-app]"));
+        return containers.find(function (el) {
+          return el.getAttribute("data-app") === appName;
+        }) || null;
+      }
+
+      function handleMfeError(event) {
+        var detail = event && event.detail ? event.detail : {};
+        var appName = typeof detail.name === "string" ? detail.name : "";
+        var container = getAppContainerByName(appName);
+        if (container) {
+          container.setAttribute("data-app-state", "error");
+        }
+        scheduleRouteReadyCheck();
+      }
+
+      function appContainerHasMountedContent(container) {
+        if (!container) return false;
+        if (container.getAttribute("data-app-state") === "maintenance") return true;
+        if (container.getAttribute("data-app-state") === "error") return true;
+        var appRoot = container.querySelector("application");
+        if (!appRoot) return false;
+        if (appRoot.children && appRoot.children.length > 0) return true;
+        var singleSpaRoot = container.querySelector('[id^="single-spa-application"]');
+        if (singleSpaRoot && singleSpaRoot.children && singleSpaRoot.children.length > 0) return true;
+        return false;
+      }
+
+      function isRouteReady() {
+        var containers = getRouteAppContainers();
+        if (!containers.length) return true;
+        return containers.every(appContainerHasMountedContent);
+      }
+
+      function markRoutePending() {
+        if (!loaderClosed) {
+          root.classList.add("mfe-shell-route-pending");
+        }
+      }
+
+      function markRouteReady() {
+        root.classList.remove("mfe-shell-route-pending");
+      }
+
+      function scheduleRouteReadyCheck() {
+        if (loaderClosed) return;
+        markRoutePending();
+        if (routeReadyRafId) {
+          window.cancelAnimationFrame(routeReadyRafId);
+        }
+        routeReadyRafId = window.requestAnimationFrame(function () {
+          routeReadyRafId = 0;
+          if (isRouteReady()) {
+            requestHideLoader();
+          }
+        });
+      }
+
+      function requestHideLoader() {
+        if (loaderClosed || loaderHideRequested) return;
+        loaderHideRequested = true;
+        var elapsedMs = Date.now() - loaderOpenedAt;
+        var remainingMs = Math.max(0, loaderMinVisibleMs - elapsedMs);
+        if (remainingMs <= 0) {
+          hideLoader();
+          return;
+        }
+        loaderMinVisibleTimeoutId = window.setTimeout(function () {
+          loaderMinVisibleTimeoutId = 0;
+          hideLoader();
+        }, remainingMs);
       }
 
       function hideLoader() {
@@ -412,8 +523,13 @@
           window.clearTimeout(loaderTimeoutId);
           loaderTimeoutId = 0;
         }
+        if (loaderMinVisibleTimeoutId) {
+          window.clearTimeout(loaderMinVisibleTimeoutId);
+          loaderMinVisibleTimeoutId = 0;
+        }
         cleanupLoaderListeners();
         root.classList.remove("mfe-shell-booting");
+        markRouteReady();
         if (!loaderEl) return;
         loaderEl.classList.add("is-hidden");
         window.setTimeout(function () {
@@ -451,11 +567,14 @@
       }
 
       setLoaderTimeout(loaderTimeoutMs);
-      window.addEventListener("single-spa:first-mount", onFirstMount, { once: true });
-      window.addEventListener("single-spa:app-change", onAppChange, { once: true });
-      window.addEventListener("single-spa:no-app-change", onNoAppChange, { once: true });
-      window.addEventListener("single-spa:routing-event", onRoutingEvent, { once: true });
+      routeReadyObserver = new MutationObserver(scheduleRouteReadyCheck);
+      routeReadyObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-app-state"] });
+      window.addEventListener("single-spa:first-mount", onFirstMount);
+      window.addEventListener("single-spa:app-change", onAppChange);
+      window.addEventListener("single-spa:no-app-change", onNoAppChange);
+      window.addEventListener("single-spa:routing-event", onRoutingEvent);
       window.addEventListener("mfe-error", onMfeError, { once: true });
+      scheduleRouteReadyCheck();
 
       function importRootConfig() {
         if (window.System && window.System.import) {
@@ -494,6 +613,8 @@
       }
     })();
   </script>
+  <% if (isLocal) { %>
   <import-map-overrides-full show-when-local-storage="devtools" dev-libs></import-map-overrides-full>
+  <% } %>
 </body>
 </html>

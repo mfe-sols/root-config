@@ -18,14 +18,63 @@
     html.mfe-shell-booting body {
       overflow: hidden;
     }
+    html.mfe-shell-route-pending body {
+      background: #f8fafc;
+    }
+    html.mfe-shell-route-pending .mfe-shell-footer {
+      opacity: 0;
+      transform: translateY(16px);
+      pointer-events: none;
+    }
+    html.mfe-shell-route-pending .mfe-home-layout,
+    html.mfe-shell-route-pending main > .mfe-app-card {
+      position: relative;
+      min-height: clamp(520px, 72vh, 760px);
+    }
+    html.mfe-shell-route-pending .mfe-home-layout::before,
+    html.mfe-shell-route-pending main > .mfe-app-card::before {
+      content: "";
+      position: absolute;
+      inset: clamp(12px, 2vw, 24px);
+      z-index: 0;
+      border-radius: 24px;
+      background:
+        linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.76), transparent) -42% 0 / 42% 100% no-repeat,
+        radial-gradient(120% 100% at 20% 0%, rgba(14, 165, 233, 0.1), transparent 42%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.92));
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+      pointer-events: none;
+      animation: mfe-shell-route-skeleton 1200ms ease-in-out infinite;
+    }
+    html.mfe-shell-route-pending .mfe-home-layout::after,
+    html.mfe-shell-route-pending main > .mfe-app-card::after {
+      content: "";
+      position: absolute;
+      inset: clamp(34px, 5vw, 72px) clamp(28px, 7vw, 112px) auto;
+      z-index: 0;
+      height: clamp(260px, 44vh, 430px);
+      border-radius: 20px;
+      background:
+        linear-gradient(90deg, rgba(226, 232, 240, 0.95) 0 26%, transparent 26% 100%) 0 0 / 100% 24px no-repeat,
+        linear-gradient(90deg, rgba(226, 232, 240, 0.72) 0 58%, transparent 58% 100%) 0 44px / 100% 18px no-repeat,
+        linear-gradient(90deg, rgba(226, 232, 240, 0.58) 0 42%, transparent 42% 100%) 0 76px / 100% 16px no-repeat,
+        linear-gradient(180deg, rgba(224, 242, 254, 0.62), rgba(241, 245, 249, 0.34));
+      pointer-events: none;
+    }
+    html.mfe-shell-route-pending .mfe-home-layout > *,
+    html.mfe-shell-route-pending main > .mfe-app-card > * {
+      opacity: 0;
+    }
     .mfe-shell-loader {
-      --mfe-shell-loader-size: clamp(44px, 5vw, 58px);
+      --mfe-shell-loader-size: clamp(58px, 6vw, 76px);
       --mfe-shell-loader-speed: 900ms;
       --mfe-shell-loader-accent: var(--color-primary-500);
       --mfe-shell-loader-accent-strong: var(--color-primary-700);
-      --mfe-shell-loader-fire-core: rgba(255, 164, 43, 0.9);
-      --mfe-shell-loader-fire-edge: rgba(255, 96, 31, 0.82);
-      --mfe-shell-loader-fire-spark: rgba(255, 214, 102, 0.92);
+      --mfe-shell-loader-sea-core: rgba(14, 165, 233, 0.76);
+      --mfe-shell-loader-sea-edge: rgba(6, 182, 212, 0.7);
+      --mfe-shell-loader-sea-foam: rgba(125, 211, 252, 0.88);
+      --mfe-shell-loader-sea-deep: rgba(2, 132, 199, 0.9);
       --mfe-shell-loader-bagua-light: #ffffff;
       --mfe-shell-loader-bagua-dark: #060606;
       --mfe-shell-loader-bagua-border: rgba(2, 6, 23, 0.9);
@@ -35,17 +84,21 @@
       inset: 0;
       z-index: 20000;
       display: grid;
+      grid-auto-rows: max-content;
       place-items: center;
+      align-content: center;
+      gap: 16px;
       padding:
         max(16px, env(safe-area-inset-top))
         max(16px, env(safe-area-inset-right))
         max(16px, env(safe-area-inset-bottom))
         max(16px, env(safe-area-inset-left));
       background:
-        radial-gradient(120% 120% at 10% 0%, color-mix(in srgb, var(--color-primary-500) 12%, #ffffff), #f8fafc 58%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.96));
-      backdrop-filter: blur(1.5px);
-      transition: opacity 240ms ease, visibility 240ms ease;
+        radial-gradient(70% 62% at 50% 43%, rgba(14, 165, 233, 0.11), transparent 48%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(241, 245, 249, 0.82));
+      -webkit-backdrop-filter: blur(7px) saturate(112%);
+      backdrop-filter: blur(7px) saturate(112%);
+      transition: opacity 260ms ease, visibility 260ms ease;
     }
     .mfe-shell-loader.is-hidden {
       opacity: 0;
@@ -99,14 +152,16 @@
       mask: none;
       filter:
         drop-shadow(0 14px 24px rgba(15, 23, 42, 0.16))
-        drop-shadow(0 0 18px color-mix(in srgb, var(--mfe-shell-loader-fire-edge) 36%, transparent))
-        drop-shadow(0 0 28px color-mix(in srgb, var(--mfe-shell-loader-fire-core) 28%, transparent));
+        drop-shadow(0 0 18px color-mix(in srgb, var(--mfe-shell-loader-sea-edge) 34%, transparent))
+        drop-shadow(0 0 30px color-mix(in srgb, var(--mfe-shell-loader-sea-core) 26%, transparent));
       box-shadow:
         0 18px 36px rgba(15, 23, 42, 0.1),
         0 0 0 1px rgba(255, 255, 255, 0.16),
-        0 0 34px color-mix(in srgb, var(--mfe-shell-loader-fire-core) 14%, transparent);
+        0 0 34px color-mix(in srgb, var(--mfe-shell-loader-sea-core) 14%, transparent);
       width: calc(clamp(64px, 7vw, 88px) * 2 / 3);
       height: calc(clamp(64px, 7vw, 88px) * 2 / 3);
+      min-width: 58px;
+      min-height: 58px;
     }
     .mfe-shell-loader[data-loader-variant="bagua"] .mfe-shell-loader__spinner::before,
     .mfe-shell-loader[data-loader-variant="bagua"] .mfe-shell-loader__spinner::after {
@@ -123,42 +178,52 @@
         conic-gradient(
           from 0deg,
           transparent 0deg 28deg,
-          color-mix(in srgb, var(--mfe-shell-loader-fire-spark) 90%, white) 58deg,
-          var(--mfe-shell-loader-fire-core) 106deg,
-          var(--mfe-shell-loader-fire-edge) 156deg,
-          color-mix(in srgb, var(--mfe-shell-loader-fire-edge) 55%, transparent) 208deg,
+          color-mix(in srgb, var(--mfe-shell-loader-sea-foam) 92%, white) 58deg,
+          var(--mfe-shell-loader-sea-core) 108deg,
+          var(--mfe-shell-loader-sea-edge) 158deg,
+          color-mix(in srgb, var(--mfe-shell-loader-sea-deep) 58%, transparent) 212deg,
           transparent 248deg 312deg,
-          color-mix(in srgb, var(--mfe-shell-loader-fire-core) 48%, transparent) 340deg,
+          color-mix(in srgb, var(--mfe-shell-loader-sea-core) 48%, transparent) 340deg,
           transparent 360deg
         );
       -webkit-mask: radial-gradient(circle, transparent 46%, #000 58%, transparent 78%);
       mask: radial-gradient(circle, transparent 46%, #000 58%, transparent 78%);
-      filter: blur(10px) saturate(120%);
-      opacity: 0.95;
+      filter: blur(10px) saturate(116%);
+      opacity: 0.88;
       animation:
-        mfe-shell-loader-fire-wheel calc(var(--mfe-shell-loader-speed) * 1.15) linear infinite,
-        mfe-shell-loader-fire-breath calc(var(--mfe-shell-loader-speed) * 1.8) ease-in-out infinite;
+        mfe-shell-loader-sea-wheel calc(var(--mfe-shell-loader-speed) * 1.15) linear infinite,
+        mfe-shell-loader-sea-breath calc(var(--mfe-shell-loader-speed) * 1.8) ease-in-out infinite;
     }
     .mfe-shell-loader[data-loader-variant="bagua"] .mfe-shell-loader__spinner::after {
       inset: -18%;
       z-index: -1;
       background:
-        radial-gradient(circle, rgba(255, 255, 255, 0.94) 0 18%, rgba(255, 232, 192, 0.72) 24%, rgba(255, 170, 78, 0.42) 42%, rgba(255, 115, 46, 0.18) 60%, transparent 76%);
+        radial-gradient(circle, rgba(255, 255, 255, 0.92) 0 18%, rgba(224, 242, 254, 0.74) 25%, rgba(125, 211, 252, 0.38) 44%, rgba(14, 165, 233, 0.16) 62%, transparent 78%);
       filter: blur(8px);
-      opacity: 0.82;
+      opacity: 0.72;
       animation: mfe-shell-loader-core-pulse calc(var(--mfe-shell-loader-speed) * 1.4) ease-in-out infinite;
     }
     .mfe-shell-loader[data-loader-variant="bagua"] {
-      background: #e6e6e6;
-      backdrop-filter: none;
+      background:
+        radial-gradient(circle at 50% 44%, rgba(14, 165, 233, 0.12), transparent 21%),
+        linear-gradient(180deg, rgba(248, 250, 252, 0.72) 0%, rgba(241, 245, 249, 0.8) 100%);
+      -webkit-backdrop-filter: blur(7px) saturate(112%);
+      backdrop-filter: blur(7px) saturate(112%);
       --mfe-shell-loader-bagua-light: #ffffff;
-      --mfe-shell-loader-bagua-dark: color-mix(in srgb, var(--color-primary-500) 68%, #ffffff);
-      --mfe-shell-loader-bagua-border: color-mix(in srgb, var(--color-primary-700) 78%, #ffffff);
+      --mfe-shell-loader-bagua-dark: color-mix(in srgb, var(--mfe-shell-loader-sea-deep) 76%, #0f172a);
+      --mfe-shell-loader-bagua-border: color-mix(in srgb, var(--mfe-shell-loader-sea-deep) 72%, #0f172a);
     }
     .mfe-shell-loader[data-loader-variant="bagua"] .mfe-shell-loader__bagua {
       display: block;
       position: relative;
       z-index: 1;
+    }
+    .mfe-shell-loader__caption {
+      color: color-mix(in srgb, var(--color-primary-700) 72%, #0f172a);
+      font-size: clamp(18px, 2vw, 24px);
+      font-weight: 800;
+      letter-spacing: 0;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.68);
     }
     .mfe-shell-loader__sr {
       position: absolute;
@@ -187,7 +252,7 @@
         transform: rotate(360deg);
       }
     }
-    @keyframes mfe-shell-loader-fire-wheel {
+    @keyframes mfe-shell-loader-sea-wheel {
       0% {
         transform: rotate(0deg) scale(0.96);
       }
@@ -198,7 +263,7 @@
         transform: rotate(360deg) scale(0.96);
       }
     }
-    @keyframes mfe-shell-loader-fire-breath {
+    @keyframes mfe-shell-loader-sea-breath {
       0%,
       100% {
         opacity: 0.7;
@@ -220,10 +285,20 @@
         opacity: 0.96;
       }
     }
+    @keyframes mfe-shell-route-skeleton {
+      0% {
+        background-position: -42% 0, 0 0, 0 0;
+      }
+      100% {
+        background-position: 142% 0, 0 0, 0 0;
+      }
+    }
     [data-theme="dark"] .mfe-shell-loader {
       background:
-        radial-gradient(120% 120% at 10% 0%, rgba(45, 212, 191, 0.12), #020617 58%),
-        linear-gradient(180deg, rgba(2, 6, 23, 0.84), rgba(2, 6, 23, 0.95));
+        radial-gradient(80% 68% at 50% 42%, rgba(14, 165, 233, 0.14), transparent 50%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.84));
+      -webkit-backdrop-filter: blur(8px) saturate(118%);
+      backdrop-filter: blur(8px) saturate(118%);
     }
     [data-theme="dark"] .mfe-shell-loader__spinner {
       filter: drop-shadow(var(--mfe-shell-loader-shadow-dark));
@@ -231,27 +306,33 @@
     [data-theme="dark"] .mfe-shell-loader[data-loader-variant="bagua"] .mfe-shell-loader__spinner {
       filter:
         drop-shadow(0 14px 28px rgba(2, 6, 23, 0.28))
-        drop-shadow(0 0 22px color-mix(in srgb, var(--mfe-shell-loader-fire-edge) 45%, transparent))
-        drop-shadow(0 0 36px color-mix(in srgb, var(--mfe-shell-loader-fire-core) 34%, transparent));
+        drop-shadow(0 0 22px color-mix(in srgb, var(--mfe-shell-loader-sea-edge) 42%, transparent))
+        drop-shadow(0 0 36px color-mix(in srgb, var(--mfe-shell-loader-sea-core) 32%, transparent));
       box-shadow:
         0 18px 34px rgba(2, 6, 23, 0.18),
         0 0 0 1px rgba(255, 255, 255, 0.08),
-        0 0 42px color-mix(in srgb, var(--mfe-shell-loader-fire-core) 18%, transparent);
+        0 0 42px color-mix(in srgb, var(--mfe-shell-loader-sea-core) 18%, transparent);
     }
     [data-theme="dark"] .mfe-shell-loader {
       --mfe-shell-loader-bagua-border: rgba(255, 255, 255, 0.82);
     }
     [data-theme="dark"] .mfe-shell-loader[data-loader-variant="bagua"] {
       background:
-        radial-gradient(120% 120% at 50% 0%, rgba(45, 212, 191, 0.1), #08111f 62%),
-        linear-gradient(180deg, rgba(7, 10, 18, 0.96), rgba(2, 6, 23, 0.985));
-      backdrop-filter: none;
-      --mfe-shell-loader-fire-core: rgba(255, 166, 76, 0.96);
-      --mfe-shell-loader-fire-edge: rgba(255, 105, 56, 0.92);
-      --mfe-shell-loader-fire-spark: rgba(255, 232, 158, 0.98);
+        radial-gradient(circle at 50% 44%, rgba(14, 165, 233, 0.16), transparent 22%),
+        linear-gradient(180deg, rgba(7, 10, 18, 0.78), rgba(2, 6, 23, 0.88));
+      -webkit-backdrop-filter: blur(8px) saturate(118%);
+      backdrop-filter: blur(8px) saturate(118%);
+      --mfe-shell-loader-sea-core: rgba(56, 189, 248, 0.82);
+      --mfe-shell-loader-sea-edge: rgba(34, 211, 238, 0.76);
+      --mfe-shell-loader-sea-foam: rgba(186, 230, 253, 0.9);
+      --mfe-shell-loader-sea-deep: rgba(14, 165, 233, 0.92);
       --mfe-shell-loader-bagua-light: #ffffff;
-      --mfe-shell-loader-bagua-dark: color-mix(in srgb, var(--color-primary-500) 82%, #ffffff);
-      --mfe-shell-loader-bagua-border: color-mix(in srgb, var(--color-primary-100) 45%, #ffffff);
+      --mfe-shell-loader-bagua-dark: color-mix(in srgb, var(--mfe-shell-loader-sea-core) 78%, #ffffff);
+      --mfe-shell-loader-bagua-border: color-mix(in srgb, var(--mfe-shell-loader-sea-foam) 58%, #ffffff);
+    }
+    [data-theme="dark"] .mfe-shell-loader__caption {
+      color: color-mix(in srgb, var(--mfe-shell-loader-sea-foam) 78%, #ffffff);
+      text-shadow: 0 1px 12px rgba(14, 165, 233, 0.18);
     }
     @media (max-width: 1024px) {
       .mfe-shell-loader {
@@ -456,6 +537,7 @@
       width: 100%;
       margin: 0;
       max-width: 100%;
+      transition: opacity 220ms ease, transform 220ms ease;
     }
     html:not(:has(style[data-tailwind-global])) .mfe-shell-footer:not([data-app-state="maintenance"]) {
       visibility: hidden;
@@ -536,6 +618,26 @@
     [data-theme="dark"] body:has(.mfe-app-card[data-app="@org/vr-res-react"]) main,
     [data-theme="dark"] body:has(.mfe-app-card[data-app="@org/vr-res-react"]) .mfe-home-layout {
       background: transparent;
+    }
+    [data-theme="dark"].mfe-shell-route-pending body {
+      background: #07111e;
+    }
+    [data-theme="dark"].mfe-shell-route-pending .mfe-home-layout::before,
+    [data-theme="dark"].mfe-shell-route-pending main > .mfe-app-card::before {
+      background:
+        linear-gradient(90deg, transparent, rgba(30, 41, 59, 0.72), transparent) -42% 0 / 42% 100% no-repeat,
+        radial-gradient(120% 100% at 20% 0%, rgba(45, 212, 191, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.9));
+      border-color: rgba(148, 163, 184, 0.16);
+      box-shadow: 0 18px 46px rgba(2, 6, 23, 0.34);
+    }
+    [data-theme="dark"].mfe-shell-route-pending .mfe-home-layout::after,
+    [data-theme="dark"].mfe-shell-route-pending main > .mfe-app-card::after {
+      background:
+        linear-gradient(90deg, rgba(51, 65, 85, 0.82) 0 26%, transparent 26% 100%) 0 0 / 100% 24px no-repeat,
+        linear-gradient(90deg, rgba(51, 65, 85, 0.6) 0 58%, transparent 58% 100%) 0 44px / 100% 18px no-repeat,
+        linear-gradient(90deg, rgba(51, 65, 85, 0.46) 0 42%, transparent 42% 100%) 0 76px / 100% 16px no-repeat,
+        linear-gradient(180deg, rgba(8, 47, 73, 0.42), rgba(15, 23, 42, 0.34));
     }
     .mfe-playgrounds-fab {
       font-size: 14px;
