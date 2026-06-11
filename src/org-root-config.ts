@@ -984,7 +984,11 @@ const bootstrap = () => {
   window.addEventListener("single-spa:routing-event", () => {
     const next = window.location.pathname;
     if (next !== _prevScrollPathname) {
+      const previous = _prevScrollPathname;
       _prevScrollPathname = next;
+      const isVrResDetailTransition = previous.startsWith("/destinations/") || next.startsWith("/destinations/");
+      const hasVrResScrollState = Boolean(history.state && typeof history.state === "object" && "vr-res:list-scroll-y" in history.state);
+      if (isVrResDetailTransition || hasVrResScrollState) return;
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     }
   });
