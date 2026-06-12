@@ -988,7 +988,11 @@ const bootstrap = () => {
       _prevScrollPathname = next;
       const isVrResDetailTransition = previous.startsWith("/destinations/") || next.startsWith("/destinations/");
       const hasVrResScrollState = Boolean(history.state && typeof history.state === "object" && "vr-res:list-scroll-y" in history.state);
-      if (isVrResDetailTransition || hasVrResScrollState) return;
+      // The header's "Đăng trải nghiệm" overlay lives on /experiences and is a
+      // full-screen portal; keep the underlying page's scroll position intact
+      // when it opens or closes.
+      const isExperiencesTransition = previous.startsWith("/experiences") || next.startsWith("/experiences");
+      if (isVrResDetailTransition || hasVrResScrollState || isExperiencesTransition) return;
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     }
   });
