@@ -12,6 +12,7 @@ import budgetPlansRoute from "./layout/routes-budget-plans.html";
 import authRoute from "./layout/routes-auth.html";
 import mgnKahootMiniRoute from "./layout/routes-mgn-kahoot-mini.html";
 import destinationsRoute from "./layout/routes-destinations.html";
+import experiencesRoute from "./layout/routes-experiences.html";
 import defaultRoute from "./layout/routes-default.html";
 import {
   applyI18nToDom,
@@ -675,6 +676,7 @@ const microfrontendLayout = applyLayoutSection(
     ["ROUTE_AUTH", authRoute],
     ["ROUTE_MGN_KAHOOT_MINI", mgnKahootMiniRoute],
     ["ROUTE_DESTINATIONS", destinationsRoute],
+    ["ROUTE_EXPERIENCES", experiencesRoute],
     ["ROUTE_DEFAULT", defaultRoute],
   ].reduce(
     (acc, [marker, content]) => applyLayoutSection(acc, marker, content),
