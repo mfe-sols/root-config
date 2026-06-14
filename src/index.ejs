@@ -51,6 +51,15 @@
   <link rel="preload" href="/vendor/import-map-injector.js" as="script">
   <link rel="preload" href="/vendor/zone.umd.js" as="script">
 
+  <% if (isLocal) { %>
+  <!-- Warm connections to the always-on shell + home-route MFE dev servers so
+       their bundles start downloading in parallel with root-config bootstrap. -->
+  <link rel="preconnect" href="//localhost:9012" crossorigin>
+  <link rel="preconnect" href="//localhost:9013" crossorigin>
+  <link rel="preconnect" href="//localhost:9014" crossorigin>
+  <link rel="preconnect" href="//localhost:9017" crossorigin>
+  <% } %>
+
   <!-- Add your organization's prod import map URL to this script's src  -->
   <!-- <script type="injector-importmap" src="/importmap.json"></script> -->
 

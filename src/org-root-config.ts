@@ -356,7 +356,44 @@ const loadUmdScript = (url: string) => {
 };
 
 type ModuleFormat = "system" | "esm" | "umd" | "unknown";
-const moduleFormatCache = new Map<string, ModuleFormat>();
+const MODULE_FORMAT_CACHE_KEY = "mfe-module-format-cache";
+
+/** Hydrate the in-memory format cache from sessionStorage so a full page reload
+ * doesn't repeat the format-detection round-trip for every lazy app. Only stable
+ * formats are persisted ("unknown" is never cached). */
+const loadPersistedModuleFormats = (): Map<string, ModuleFormat> => {
+  const map = new Map<string, ModuleFormat>();
+  try {
+    const raw = window.sessionStorage.getItem(MODULE_FORMAT_CACHE_KEY);
+    if (!raw) return map;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return map;
+    Object.entries(parsed).forEach(([url, format]) => {
+      if (format === "system" || format === "esm" || format === "umd") {
+        map.set(url, format);
+      }
+    });
+  } catch {
+    // ignore malformed cache
+  }
+  return map;
+};
+
+const moduleFormatCache = loadPersistedModuleFormats();
+
+const persistModuleFormat = (url: string, format: ModuleFormat) => {
+  if (format === "unknown") return;
+  try {
+    const obj: Record<string, ModuleFormat> = {};
+    moduleFormatCache.forEach((value, key) => {
+      if (value !== "unknown") obj[key] = value;
+    });
+    obj[url] = format;
+    window.sessionStorage.setItem(MODULE_FORMAT_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    // ignore storage quota/serialization errors
+  }
+};
 
 const withCacheBust = (url: string) =>
   isLocalhost ? `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}` : url;
@@ -422,6 +459,7 @@ const detectModuleFormat = (url: string) => {
           const format = analyzeSource(head, "");
           if (format !== "unknown") {
             moduleFormatCache.set(url, format);
+            persistModuleFormat(url, format);
             return format;
           }
           // If still unknown (might be ESM with exports at the end), do full fetch
@@ -431,6 +469,7 @@ const detectModuleFormat = (url: string) => {
               const tail = full.slice(-4096);
               const fmt = analyzeSource(full.slice(0, 8192), tail, full);
               moduleFormatCache.set(url, fmt);
+              persistModuleFormat(url, fmt);
               return fmt;
             });
         });
@@ -442,6 +481,7 @@ const detectModuleFormat = (url: string) => {
         const tail = source.slice(-4096);
         const format = analyzeSource(head, tail, source);
         moduleFormatCache.set(url, format);
+        persistModuleFormat(url, format);
         return format;
       });
     })
@@ -655,9 +695,16 @@ const watchLocalAvailability = () => {
   });
 
   return {
-    start(nextCheckAvailability: () => void) {
+    start(nextCheckAvailability: () => void, initialDelayMs = 0) {
       checkAvailability = nextCheckAvailability;
-      poll();
+      if (initialDelayMs > 0) {
+        // Already bootstrapped from cache: defer the first full re-probe so the
+        // 14-app HEAD sweep doesn't compete with the home bundles still
+        // downloading/parsing. The session cache stays valid in the meantime.
+        schedule(initialDelayMs);
+      } else {
+        poll();
+      }
     },
   };
 };
@@ -709,6 +756,12 @@ const systemFirstApps = new Set<string>([
   "@org/playground-svelte",
 ]);
 const forceSystemJsApps = new Set<string>([
+  // Always-on shell apps and home-route apps are all built as SystemJS
+  // (`System.register`) bundles. Listing them here skips the extra
+  // `detectModuleFormat` round-trip so they start loading immediately —
+  // most impactful for the always-on header, the first app users see.
+  "@org/header-react",
+  "@org/footer-react",
   "@org/mfe-kahoot-mini-react",
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
@@ -1339,7 +1392,13 @@ const bootstrap = () => {
   // Cross-tab sync listeners are now registered before the isLocalhost branch
   // (at the top of bootstrap) so they work on all environments.
 
-  localAvailabilityWatcher.start(runAvailabilityCheck);
+  // When we already bootstrapped from the session availability cache, defer the
+  // first full re-probe so it doesn't contend with the home bundles loading.
+  // On a cold start (no cache) the probe must run immediately to bootstrap.
+  localAvailabilityWatcher.start(
+    runAvailabilityCheck,
+    hasBootstrappedLocalApps ? 2500 : 0
+  );
 };
 
 bootstrap();
