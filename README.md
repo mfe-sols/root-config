@@ -73,7 +73,12 @@ Sửa `public/importmap.prod.json`:
 ```json
 {
   "imports": {
-    "@org/header-react": "https://header-react.vercel.app/org-header-react.js"
+    "@org/header-react": "https://header-react.vercel.app/org-header-react.js",
+    "@org/playground-angular": "https://playground-angular-khaki.vercel.app/main.js",
+    "@org/playground-vue": "https://playground-vue-inky.vercel.app/playground-vue.js",
+    "@org/playground-react": "https://playground-react-gold.vercel.app/org-playground.js",
+    "@org/playground-vanilla": "https://playground-vanilla.vercel.app/org-playground-vanilla.js",
+    "@org/playground-svelte": "https://playground-svelte.vercel.app/org-playground-svelte.js"
   }
 }
 ```
@@ -131,6 +136,7 @@ All modules can reuse the same maintenance UI/behavior in shell mode:
   status-path="/status.html"
 ></mfe-maintenance-card>
 ```
+
 
 Attributes:
 - `app` (required): app name in import-map format
