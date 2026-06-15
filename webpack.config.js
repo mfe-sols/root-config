@@ -225,6 +225,7 @@ module.exports = (webpackConfigEnv, argv) => {
       }),
       new HtmlWebpackPlugin({
         inject: false,
+        minify: false,
         template: "src/index.ejs",
         watchFiles: [rootConfigCssPath, uiKitCssPath],
         templateParameters: {
@@ -238,6 +239,7 @@ module.exports = (webpackConfigEnv, argv) => {
       }),
       new HtmlWebpackPlugin({
         inject: false,
+        minify: false,
         filename: "status.html",
         template: "src/status.ejs",
         templateParameters: {

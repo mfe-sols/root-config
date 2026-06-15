@@ -1,12 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-is-local="<%= isLocal ? "true" : "false" %>">
+<html
+  lang="en"
+  data-is-local="<%= isLocal ? "true" : "false" %>"
+  data-auth-base="<%= authBaseUrl || '' %>"
+  data-importmap-url="<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>"
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orchestra Status</title>
     <script>
       (function () {
-        const AUTH_BASE = "<%= authBaseUrl || '' %>";
+        const AUTH_BASE = document.documentElement.dataset.authBase || "";
         const loginUrl = new URL("/auth/login", window.location.origin);
         loginUrl.searchParams.set("returnTo", "/status.html");
         const redirectToLogin = () => {
@@ -1059,7 +1064,7 @@
         { name: "@org/simple-vanilla", url: "http://localhost:9009/org-simple-vanilla.js" },
       ];
       const toggleUrl = "/api/mfe-toggle";
-      const importmapUrl = "<%= process.env.IMPORTMAP_PROD_URL || '/importmap.prod.json' %>";
+      const importmapUrl = document.documentElement.dataset.importmapUrl || "/importmap.prod.json";
 
       const grid = document.getElementById("grid");
       const moduleSearchInput = document.getElementById("module-search");
