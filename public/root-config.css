@@ -95,9 +95,7 @@
         max(16px, env(safe-area-inset-left));
       background:
         radial-gradient(70% 62% at 50% 43%, rgba(14, 165, 233, 0.11), transparent 48%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(241, 245, 249, 0.82));
-      -webkit-backdrop-filter: blur(7px) saturate(112%);
-      backdrop-filter: blur(7px) saturate(112%);
+        linear-gradient(180deg, #ffffff, #f1f5f9);
       transition: opacity 260ms ease, visibility 260ms ease;
     }
     .mfe-shell-loader.is-hidden {
@@ -296,9 +294,7 @@
     [data-theme="dark"] .mfe-shell-loader {
       background:
         radial-gradient(80% 68% at 50% 42%, rgba(14, 165, 233, 0.14), transparent 50%),
-        linear-gradient(180deg, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.84));
-      -webkit-backdrop-filter: blur(8px) saturate(118%);
-      backdrop-filter: blur(8px) saturate(118%);
+        linear-gradient(180deg, #070b14, #020617);
     }
     [data-theme="dark"] .mfe-shell-loader__spinner {
       filter: drop-shadow(var(--mfe-shell-loader-shadow-dark));
@@ -319,9 +315,7 @@
     [data-theme="dark"] .mfe-shell-loader[data-loader-variant="bagua"] {
       background:
         radial-gradient(circle at 50% 44%, rgba(14, 165, 233, 0.16), transparent 22%),
-        linear-gradient(180deg, rgba(7, 10, 18, 0.78), rgba(2, 6, 23, 0.88));
-      -webkit-backdrop-filter: blur(8px) saturate(118%);
-      backdrop-filter: blur(8px) saturate(118%);
+        linear-gradient(180deg, #070a12, #020617);
       --mfe-shell-loader-sea-core: rgba(56, 189, 248, 0.82);
       --mfe-shell-loader-sea-edge: rgba(34, 211, 238, 0.76);
       --mfe-shell-loader-sea-foam: rgba(186, 230, 253, 0.9);

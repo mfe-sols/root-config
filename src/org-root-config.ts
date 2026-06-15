@@ -1273,6 +1273,17 @@ const bootstrap = () => {
   }
 
   if (!isLocalhost) {
+    // Do not put the serverless toggle endpoint on the production critical
+    // path. The shell and route bundles can start loading immediately while
+    // the latest toggle state is refreshed in parallel.
+    setRuntimeDisabledApps(localDisabledApps);
+    emitDisabledApps(new Set<string>(), localDisabledApps);
+    applications = allApplications;
+    const layoutEngine = constructLayoutEngine({ routes, applications });
+    applications.forEach((app) => registerApplication(app));
+    layoutEngine.activate();
+    start();
+
     getServerToggleState().then((serverToggle) => {
       const serverDisabledApps = (serverToggle.disabled || []).filter(
         (name): name is string => typeof name === "string"
@@ -1287,11 +1298,6 @@ const bootstrap = () => {
         localDisabledApps,
         serverToggle.disabledMode
       );
-      applications = allApplications;
-      const layoutEngine = constructLayoutEngine({ routes, applications });
-      applications.forEach((app) => registerApplication(app));
-      layoutEngine.activate();
-      start();
       serverToggleWatcher.start(applyToggleState);
     });
     return;
