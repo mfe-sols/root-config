@@ -1,13 +1,13 @@
 {
   "imports": {
-    "@org/auth-angular": "https://mfe-auth-angular.vercel.app/main.js",
-    "@org/header-react": "https://mfe-header-react.vercel.app/org-header-react.js",
-    "@org/footer-react": "https://footer-react-six.vercel.app/org-footer-react.js",
+    "@org/auth-angular": "https://cdn.vopenworld.com/auth-angular/main.js",
+    "@org/header-react": "https://cdn.vopenworld.com/header/org-header-react.js",
+    "@org/footer-react": "https://cdn.vopenworld.com/footer/org-footer-react.js",
     "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
-    "@org/mfe-budget-plans": "https://mfe-budget-plans.vercel.app/org-mfe-budget-plans.js",
-    "@org/mfe-hero-discovery": "https://hero-discovery.vercel.app/org-mfe-hero-discovery.js",
+    "@org/mfe-budget-plans": "https://cdn.vopenworld.com/budget/org-mfe-budget-plans.js",
+    "@org/mfe-hero-discovery": "https://cdn.vopenworld.com/hero-discovery/org-mfe-hero-discovery.js",
     "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
     "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",
-    "@org/vr-res-react": "https://vr-res-react.vercel.app/org-vr-res-react.js"
+    "@org/vr-res-react": "https://cdn.vopenworld.com/vr-res/org-vr-res-react.js"
   }
 }
