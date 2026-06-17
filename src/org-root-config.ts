@@ -73,6 +73,8 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
   || window.location.hostname.endsWith(".devtunnels.ms");
 const REMOTE_APP_LOAD_TIMEOUT_MS = 8000;
 const LOCAL_APP_LOAD_TIMEOUT_MS = 30000;
+const REMOTE_APP_CIRCUIT_TTL_MS = 120000;
+const APP_FAILURE_CACHE_KEY = "mfe-app-load-failures";
 const appLoadTimeoutMs = () => (isLocalhost ? LOCAL_APP_LOAD_TIMEOUT_MS : REMOTE_APP_LOAD_TIMEOUT_MS);
 
 const resolveImportMapUrl = (name: string): string | null => {
@@ -129,6 +131,12 @@ type DisabledModeConfig =
 type ToggleState = {
   disabled: string[];
   disabledMode?: { default: DisabledMode; apps: Record<string, DisabledMode> };
+};
+type AppFailureRecord = {
+  failedAt: number;
+  count: number;
+  reason: string;
+  url?: string;
 };
 
 const sanitizeDisabledApps = (names: Iterable<string>) =>
@@ -231,6 +239,96 @@ const emitDisabledApps = (
   );
 };
 
+const errorMessage = (error: unknown) =>
+  error instanceof Error
+    ? error.message
+    : typeof error === "string"
+    ? error
+    : "Module failed to load";
+
+const emitMfeError = (name: string, error: unknown, url?: string) => {
+  window.dispatchEvent(
+    new CustomEvent("mfe-error", {
+      detail: {
+        name,
+        message: errorMessage(error),
+        url,
+      },
+    })
+  );
+};
+
+const readAppFailures = (): Record<string, AppFailureRecord> => {
+  try {
+    const raw = window.sessionStorage.getItem(APP_FAILURE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const failures: Record<string, AppFailureRecord> = {};
+    Object.entries(parsed).forEach(([name, value]) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const record = value as Partial<AppFailureRecord>;
+      if (typeof record.failedAt !== "number" || typeof record.count !== "number") return;
+      failures[name] = {
+        failedAt: record.failedAt,
+        count: record.count,
+        reason: typeof record.reason === "string" ? record.reason.slice(0, 240) : "Module failed to load",
+        url: typeof record.url === "string" ? record.url : undefined,
+      };
+    });
+    return failures;
+  } catch {
+    return {};
+  }
+};
+
+const writeAppFailures = (failures: Record<string, AppFailureRecord>) => {
+  try {
+    window.sessionStorage.setItem(APP_FAILURE_CACHE_KEY, JSON.stringify(failures));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const getOpenCircuit = (name: string): AppFailureRecord | null => {
+  if (isLocalhost) return null;
+  const failures = readAppFailures();
+  const record = failures[name];
+  if (!record) return null;
+  if (Date.now() - record.failedAt > REMOTE_APP_CIRCUIT_TTL_MS) {
+    delete failures[name];
+    writeAppFailures(failures);
+    return null;
+  }
+  return record;
+};
+
+const recordAppFailure = (name: string, error: unknown, url?: string) => {
+  if (isLocalhost) {
+    emitMfeError(name, error, url);
+    return;
+  }
+  const failures = readAppFailures();
+  const previous = failures[name];
+  const reason = errorMessage(error).slice(0, 240);
+  failures[name] = {
+    failedAt: Date.now(),
+    count: (previous?.count || 0) + 1,
+    reason,
+    url,
+  };
+  writeAppFailures(failures);
+  emitMfeError(name, reason, url);
+};
+
+const clearAppFailure = (name: string) => {
+  if (isLocalhost) return;
+  const failures = readAppFailures();
+  if (!failures[name]) return;
+  delete failures[name];
+  writeAppFailures(failures);
+};
+
 const isUrlAvailable = (url: string, timeoutMs = 1500) => {
   // Validate URL protocol to prevent SSRF via unexpected schemes
   try {
@@ -250,15 +348,10 @@ const isUrlAvailable = (url: string, timeoutMs = 1500) => {
   return fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal })
     .then((res) => res.ok || res.type === "opaque")
     .catch(() => {
-      // A connection-refused/DNS error rejects almost immediately and means the
-      // dev server is genuinely down → unavailable. But when WE abort on the
-      // timeout (`timedOut`), the server is actually listening and just slow to
-      // answer the HEAD (a cold webpack-dev-server compile of a multi-MB bundle
-      // can take seconds). Treat that as AVAILABLE so a running-but-slow app's
-      // home-route section is still registered instead of rendering blank;
-      // loadApp still degrades gracefully via createUnavailableApp if the bundle
-      // ultimately fails to load.
-      return timedOut;
+      // Local webpack dev servers may time out during a cold compile even though
+      // they are about to serve the bundle. In production, a timeout means the
+      // remote should be treated as unavailable so the shell can fail fast.
+      return isLocalhost && timedOut;
     })
     .finally(() => window.clearTimeout(timeout));
 };
@@ -548,10 +641,43 @@ const systemImportByUrl = (url: string) =>
     ? withLoadTimeout(window.System.import(url) as Promise<any>, url)
     : importByUrl(url);
 
-const createUnavailableApp = (name: string) => ({
+const preflightRemoteBundle = (name: string, url: string | null) => {
+  if (isLocalhost || !url) return Promise.resolve();
+  return isUrlAvailable(url, 2500).then((ok) => {
+    if (!ok) {
+      throw new Error(`[root-config] Remote bundle is unavailable: ${name} (${url})`);
+    }
+  });
+};
+
+const getAppLabel = (name: string) => name.replace(/^@org\//, "").replace(/-/g, " ");
+
+const createUnavailableApp = (name: string, reason = "Module is temporarily unavailable") => ({
   bootstrap: () => Promise.resolve(),
-  mount: () => Promise.resolve(),
-  unmount: () => Promise.resolve(),
+  mount: (props?: { domElement?: HTMLElement }) => {
+    emitMfeError(name, reason);
+    const host = props?.domElement;
+    if (host && !host.querySelector("[data-root-config-fallback]")) {
+      const fallback = document.createElement("section");
+      fallback.setAttribute("data-root-config-fallback", "true");
+      fallback.className = "app-maintenance";
+      fallback.innerHTML = [
+        '<div class="app-maintenance__content">',
+        '<div class="app-maintenance__icon" aria-hidden="true">!</div>',
+        '<div class="app-maintenance__copy">',
+        `<p class="app-maintenance__title">${escapeHtml(getAppLabel(name))}</p>`,
+        `<p class="app-maintenance__desc">${escapeHtml(reason)}</p>`,
+        "</div>",
+        "</div>",
+      ].join("");
+      host.appendChild(fallback);
+    }
+    return Promise.resolve();
+  },
+  unmount: (props?: { domElement?: HTMLElement }) => {
+    props?.domElement?.querySelector("[data-root-config-fallback]")?.remove();
+    return Promise.resolve();
+  },
 });
 
 /**
@@ -838,24 +964,36 @@ const allApplications = constructApplications({
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark(`mfe:${name}:load:start`);
     }
+    const circuit = getOpenCircuit(name);
+    if (circuit) {
+      return Promise.resolve(
+        createUnavailableApp(name, `Temporarily unavailable after recent load failure: ${circuit.reason}`)
+      ).finally(() => finalizeLoadMetrics(name));
+    }
     if (runtimeDisabledApps.has(name)) {
-      return Promise.resolve(createUnavailableApp(name)).finally(() => finalizeLoadMetrics(name));
+      return Promise.resolve(createUnavailableApp(name, "Module is currently disabled")).finally(() => finalizeLoadMetrics(name));
     }
     if (name in umdApps) {
       const app = umdApps[name as keyof typeof umdApps];
       const localUrl = localAppUrls[name] || app.url;
       const remoteUrl = resolveImportMapUrl(name);
       const umdUrl = isLocalhost ? localUrl : (remoteUrl || app.url);
-      return loadUmdScript(umdUrl)
-        .then(() => wrapModuleLifecycles(name, (window as any)[app.global]))
+      return preflightRemoteBundle(name, umdUrl)
+        .then(() => loadUmdScript(umdUrl))
+        .then(() => {
+          clearAppFailure(name);
+          return wrapModuleLifecycles(name, (window as any)[app.global]);
+        })
         .catch((error) => {
           console.error(`[root-config] Failed to load UMD app ${name} from ${umdUrl}`, error);
-          return createUnavailableApp(name);
+          recordAppFailure(name, error, umdUrl);
+          return createUnavailableApp(name, errorMessage(error));
         })
         .finally(() => finalizeLoadMetrics(name));
     }
     if (systemFirstApps.has(name)) {
       const localUrl = localAppUrls[name];
+      const remoteUrl = !isLocalhost ? resolveImportMapUrl(name) : null;
       const preferredImport = isLocalhost && localUrl
         ? (() => {
             const importUrl = withCacheBust(localUrl);
@@ -895,34 +1033,60 @@ const allApplications = constructApplications({
                 .catch(() => importByUrl(importUrl).catch(() => systemImportByUrl(importUrl)));
             });
           })()
-        : window.System?.import
-          ? withLoadTimeout(window.System.import(name) as Promise<any>, name)
-          : withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name);
+        : preflightRemoteBundle(name, remoteUrl).then(() =>
+            window.System?.import
+              ? withLoadTimeout(window.System.import(name) as Promise<any>, name)
+              : withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name)
+          );
 
       return preferredImport
-        .then((mod) => wrapModuleLifecycles(name, mod))
+        .then((mod) => {
+          clearAppFailure(name);
+          return wrapModuleLifecycles(name, mod);
+        })
         .catch((systemError) => {
           // Fallback to native dynamic import for environments where SystemJS resolution is incomplete.
           const localUrl = localAppUrls[name];
           const urlFallback = isLocalhost && localUrl ? importByUrl(withCacheBust(localUrl)) : null;
-          return (urlFallback || withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name))
-            .then((mod) => wrapModuleLifecycles(name, mod))
+          if (!urlFallback) {
+            console.error(`[root-config] Failed to load app ${name} via SystemJS`, systemError);
+            recordAppFailure(name, systemError, remoteUrl || undefined);
+            return createUnavailableApp(name, errorMessage(systemError));
+          }
+          return urlFallback
+            .then((mod) => {
+              clearAppFailure(name);
+              return wrapModuleLifecycles(name, mod);
+            })
             .catch((nativeError) => {
               console.error(
                 `[root-config] Failed to load app ${name} via SystemJS and native import`,
                 systemError,
                 nativeError
               );
-              return createUnavailableApp(name);
+              recordAppFailure(name, nativeError, localUrl);
+              return createUnavailableApp(name, errorMessage(nativeError));
             });
         })
         .finally(() => finalizeLoadMetrics(name));
     }
-    return withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name)
-      .then((mod) => wrapModuleLifecycles(name, mod))
+    const remoteUrl = !isLocalhost ? resolveImportMapUrl(name) : null;
+    const genericImport = window.System?.import
+      ? preflightRemoteBundle(name, remoteUrl).then(() =>
+          withLoadTimeout(window.System.import(name) as Promise<any>, name)
+        )
+      : preflightRemoteBundle(name, remoteUrl).then(() =>
+          withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name)
+        );
+    return genericImport
+      .then((mod) => {
+        clearAppFailure(name);
+        return wrapModuleLifecycles(name, mod);
+      })
       .catch((error) => {
         console.error(`[root-config] Failed to load app ${name}`, error);
-        return createUnavailableApp(name);
+        recordAppFailure(name, error, resolveImportMapUrl(name) || undefined);
+        return createUnavailableApp(name, errorMessage(error));
       })
       .finally(() => finalizeLoadMetrics(name));
   },
