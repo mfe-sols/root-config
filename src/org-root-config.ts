@@ -228,7 +228,7 @@ const emitDisabledApps = (
   );
 };
 
-const isUrlAvailable = (url: string, timeoutMs = 700) => {
+const isUrlAvailable = (url: string, timeoutMs = 1500) => {
   // Validate URL protocol to prevent SSRF via unexpected schemes
   try {
     const parsed = new URL(url);
@@ -239,10 +239,24 @@ const isUrlAvailable = (url: string, timeoutMs = 700) => {
     return Promise.resolve(false);
   }
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   return fetch(url, { method: "HEAD", mode: "no-cors", signal: controller.signal })
     .then((res) => res.ok || res.type === "opaque")
-    .catch(() => false)
+    .catch(() => {
+      // A connection-refused/DNS error rejects almost immediately and means the
+      // dev server is genuinely down → unavailable. But when WE abort on the
+      // timeout (`timedOut`), the server is actually listening and just slow to
+      // answer the HEAD (a cold webpack-dev-server compile of a multi-MB bundle
+      // can take seconds). Treat that as AVAILABLE so a running-but-slow app's
+      // home-route section is still registered instead of rendering blank;
+      // loadApp still degrades gracefully via createUnavailableApp if the bundle
+      // ultimately fails to load.
+      return timedOut;
+    })
     .finally(() => window.clearTimeout(timeout));
 };
 
