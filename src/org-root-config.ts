@@ -1362,6 +1362,32 @@ const bootstrap = () => {
     hasBootstrappedLocalApps = true;
     rememberAvailabilitySnapshot(cached.available, cached.disabled, cached.disabledMode);
     serverToggleWatcher.start(applyToggleState);
+  } else if (isLocalhost) {
+    // Cold start on localhost (no cache): register all apps immediately with optimistic
+    // "all available" assumption. Availability check runs in parallel and can trigger
+    // safeReload() if the snapshot changes (e.g., dev server is truly down).
+    // This prevents blank content while probes/format-detection complete.
+    const localDisabledApps = getDisabledApps();
+    const allAppNames = new Set(Object.keys(localAppUrls));
+    const optimisticAvailable = sanitizeDisabledApps(
+      Array.from(allAppNames).filter((name) => !localDisabledApps.has(name))
+    );
+    setRuntimeDisabledApps(localDisabledApps);
+    currentAvailableApps = optimisticAvailable;
+    emitAvailability(optimisticAvailable);
+    emitDisabledApps(new Set<string>(), localDisabledApps);
+    applications = allApplications.filter(
+      (app) =>
+        ALWAYS_ON_APPS.has(app.name) ||
+        optimisticAvailable.has(app.name)
+    );
+    const layoutEngine = constructLayoutEngine({ routes, applications });
+    applications.forEach((app) => registerApplication(app));
+    layoutEngine.activate();
+    start();
+    hasBootstrappedLocalApps = true;
+    rememberAvailabilitySnapshot(optimisticAvailable, localDisabledApps);
+    serverToggleWatcher.start(applyToggleState);
   }
 
   const runAvailabilityCheck = () => {
