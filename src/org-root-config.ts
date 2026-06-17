@@ -71,6 +71,9 @@ const umdLoads = new Map<string, Promise<void>>();
 
 const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   || window.location.hostname.endsWith(".devtunnels.ms");
+const REMOTE_APP_LOAD_TIMEOUT_MS = 8000;
+const LOCAL_APP_LOAD_TIMEOUT_MS = 30000;
+const appLoadTimeoutMs = () => (isLocalhost ? LOCAL_APP_LOAD_TIMEOUT_MS : REMOTE_APP_LOAD_TIMEOUT_MS);
 
 const resolveImportMapUrl = (name: string): string | null => {
   try {
@@ -333,6 +336,21 @@ const buildLoginUrl = (returnTo: string) => {
   return `${url.pathname}${url.search}`;
 };
 
+const withLoadTimeout = <T>(promise: Promise<T>, label: string, timeoutMs = appLoadTimeoutMs()) => {
+  let timeoutId: number | null = null;
+  promise.catch(() => undefined);
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`[root-config] Timed out loading ${label} after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  });
+};
+
 const loadUmdScript = (url: string) => {
   const cacheKey = isLocalhost ? `${url}?t=${Date.now()}` : url;
   const cached = umdLoads.get(cacheKey);
@@ -342,6 +360,22 @@ const loadUmdScript = (url: string) => {
 
   const promise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
+    let settled = false;
+    let timeoutId: number | null = null;
+    const cleanup = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      script.onload = null;
+      script.onerror = null;
+    };
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      script.remove();
+      reject(error);
+    };
     script.src = cacheKey;
     if (!isLocalhost) {
       script.crossOrigin = "anonymous";
@@ -351,11 +385,16 @@ const loadUmdScript = (url: string) => {
       script.nonce = nonce;
     }
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      script.remove();
-      reject(new Error(`Failed to load ${escapeHtml(url)}`));
+    timeoutId = window.setTimeout(() => {
+      fail(new Error(`[root-config] Timed out loading ${escapeHtml(url)} after ${appLoadTimeoutMs()}ms`));
+    }, appLoadTimeoutMs());
+    script.onload = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
     };
+    script.onerror = () => fail(new Error(`Failed to load ${escapeHtml(url)}`));
     document.head.appendChild(script);
   });
 
@@ -502,10 +541,11 @@ const detectModuleFormat = (url: string) => {
     .catch(() => "unknown" as const);
 };
 
-const importByUrl = (url: string) => import(/* webpackIgnore: true */ url) as Promise<any>;
+const importByUrl = (url: string) =>
+  withLoadTimeout(import(/* webpackIgnore: true */ url) as Promise<any>, url);
 const systemImportByUrl = (url: string) =>
   window.System?.import
-    ? (window.System.import(url) as Promise<any>)
+    ? withLoadTimeout(window.System.import(url) as Promise<any>, url)
     : importByUrl(url);
 
 const createUnavailableApp = (name: string) => ({
@@ -856,8 +896,8 @@ const allApplications = constructApplications({
             });
           })()
         : window.System?.import
-          ? (window.System.import(name) as Promise<any>)
-          : (import(/* webpackIgnore: true */ name) as Promise<any>);
+          ? withLoadTimeout(window.System.import(name) as Promise<any>, name)
+          : withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name);
 
       return preferredImport
         .then((mod) => wrapModuleLifecycles(name, mod))
@@ -865,7 +905,7 @@ const allApplications = constructApplications({
           // Fallback to native dynamic import for environments where SystemJS resolution is incomplete.
           const localUrl = localAppUrls[name];
           const urlFallback = isLocalhost && localUrl ? importByUrl(withCacheBust(localUrl)) : null;
-          return (urlFallback || (import(/* webpackIgnore: true */ name) as Promise<any>))
+          return (urlFallback || withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name))
             .then((mod) => wrapModuleLifecycles(name, mod))
             .catch((nativeError) => {
               console.error(
@@ -878,7 +918,7 @@ const allApplications = constructApplications({
         })
         .finally(() => finalizeLoadMetrics(name));
     }
-    return (import(/* webpackIgnore: true */ name) as Promise<any>)
+    return withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name)
       .then((mod) => wrapModuleLifecycles(name, mod))
       .catch((error) => {
         console.error(`[root-config] Failed to load app ${name}`, error);
