@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Crawlable content lives under /experiences (articles) and
+# /experiences/creator (creator profiles). Build/compose routes
+# are user-only and not useful to index.
+Disallow: /experiences/new
+Disallow: /experiences/me
+Disallow: /experiences/network
+Disallow: /experiences/notifications
+
+Sitemap: https://app.vopenworld.com/sitemap.xml

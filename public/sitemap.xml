@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Static sitemap for the experiences feature. While posts are seed/local-only
+  this lists the stable sections plus the current seed articles & creators.
+  Once bff-api serves real posts, regenerate this from the backend (or let the
+  edge prerender Worker emit /sitemap.xml dynamically).
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://app.vopenworld.com/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Articles: /experiences/:slug -->
+  <url>
+    <loc>https://app.vopenworld.com/experiences/3-ngay-o-da-lat</loc>
+    <lastmod>2026-05-28</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/kinh-nghiem-di-phu-quoc-lan-dau</loc>
+    <lastmod>2026-05-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/2-ngay-o-sa-pa</loc>
+    <lastmod>2026-05-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/an-gi-o-hoi-an</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Creators: /experiences/creator/:id -->
+  <url>
+    <loc>https://app.vopenworld.com/experiences/creator/linh-tran</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/creator/minh-pham</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/creator/an-tran</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://app.vopenworld.com/experiences/creator/huy-le</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>
