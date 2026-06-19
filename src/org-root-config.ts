@@ -1327,13 +1327,20 @@ const bootstrap = () => {
     if (next !== _prevScrollPathname) {
       const previous = _prevScrollPathname;
       _prevScrollPathname = next;
-      const isVrResDetailTransition = previous.startsWith("/destinations/") || next.startsWith("/destinations/");
-      const hasVrResScrollState = Boolean(history.state && typeof history.state === "object" && "vr-res:list-scroll-y" in history.state);
+      // Preserve scroll ONLY for navigation that stays inside the vr-res
+      // listing<->detail flow (both sides under /destinations). Leaving a
+      // detail page for an unrelated route (e.g. Home "/") must still scroll to
+      // top — otherwise Home opens already scrolled down to the card grid.
+      const isVrResRoute = (p: string) => p === "/destinations" || p.startsWith("/destinations/");
+      const isVrResInternalTransition = isVrResRoute(previous) && isVrResRoute(next);
+      const hasVrResScrollState =
+        Boolean(history.state && typeof history.state === "object" && "vr-res:list-scroll-y" in history.state) &&
+        isVrResRoute(next);
       // The header's "Đăng trải nghiệm" overlay lives on /experiences and is a
       // full-screen portal; keep the underlying page's scroll position intact
       // when it opens or closes.
       const isExperiencesTransition = previous.startsWith("/experiences") || next.startsWith("/experiences");
-      if (isVrResDetailTransition || hasVrResScrollState || isExperiencesTransition) return;
+      if (isVrResInternalTransition || hasVrResScrollState || isExperiencesTransition) return;
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     }
   });
