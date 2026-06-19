@@ -1,0 +1,14 @@
+name = "vopenworld-business-subdomain-proxy"
+main = "business-subdomain-proxy.worker.js"
+compatibility_date = "2024-11-01"
+
+# Wildcard route: every subdomain except api (api is excluded via a separate no-Worker route).
+# IMPORTANT: `routes` must come BEFORE any [section] (e.g. [vars]); otherwise TOML nests it
+# inside that section and wrangler treats it as a plain variable instead of a route binding.
+routes = [
+  { pattern = "*.vopenworld.com/*", zone_name = "vopenworld.com" },
+]
+
+# app project's *.vercel.app hostname (valid cert, outside the zone -> no proxy loop).
+[vars]
+ORIGIN = "https://mfe-root-config.vercel.app"
