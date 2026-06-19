@@ -3,7 +3,7 @@
     "@org/auth-angular": "https://cdn.vopenworld.com/auth-angular/main.js",
     "@org/header-react": "https://cdn.vopenworld.com/header/org-header-react.js",
     "@org/footer-react": "https://cdn.vopenworld.com/footer/org-footer-react.js",
-    "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
+    "@org/dashboard-vue": "https://cdn.vopenworld.com/dashboard-vue/org-dashboard-vue.js",
     "@org/mfe-budget-plans": "https://cdn.vopenworld.com/budget/org-mfe-budget-plans.js",
     "@org/mfe-business-page": "https://cdn.vopenworld.com/business-page/org-mfe-business-page.js",
     "@org/mfe-hero-discovery": "https://cdn.vopenworld.com/hero-discovery/org-mfe-hero-discovery.js",
