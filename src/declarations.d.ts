@@ -42,4 +42,12 @@ interface Window {
   System?: {
     import: (name: string) => Promise<any>;
   };
+  __vopenworldDomain?: {
+    host: string;
+    isRootAppHost: boolean;
+    isApiHost: boolean;
+    isVopenworldHost: boolean;
+    isBusinessHost: boolean;
+    businessSlug: string | null;
+  };
 }

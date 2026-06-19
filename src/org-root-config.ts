@@ -13,6 +13,7 @@ import authRoute from "./layout/routes-auth.html";
 import mgnKahootMiniRoute from "./layout/routes-mgn-kahoot-mini.html";
 import destinationsRoute from "./layout/routes-destinations.html";
 import experiencesRoute from "./layout/routes-experiences.html";
+import businessRoute from "./layout/routes-business.html";
 import defaultRoute from "./layout/routes-default.html";
 import {
   applyI18nToDom,
@@ -32,6 +33,57 @@ import {
 } from "@mfe-sols/auth";
 
 const AUTH_ME_ENDPOINT = "/auth/me";
+const ROOT_APP_HOST = "app.vopenworld.com";
+const API_HOST = "api.vopenworld.com";
+const VOPENWORLD_DOMAIN = "vopenworld.com";
+const RESERVED_BUSINESS_SUBDOMAINS = new Set([
+  "app",
+  "api",
+  "www",
+  "qr",
+  "admin",
+  "assets",
+  "cdn",
+  "status",
+]);
+
+type VopenworldDomainContext = {
+  host: string;
+  isRootAppHost: boolean;
+  isApiHost: boolean;
+  isVopenworldHost: boolean;
+  isBusinessHost: boolean;
+  businessSlug: string | null;
+};
+
+const getVopenworldDomainContext = (): VopenworldDomainContext => {
+  const host = window.location.hostname.toLowerCase();
+  const isRootAppHost = host === ROOT_APP_HOST;
+  const isApiHost = host === API_HOST;
+  const subdomainSuffix = `.${VOPENWORLD_DOMAIN}`;
+  const isVopenworldHost = host === VOPENWORLD_DOMAIN || host.endsWith(subdomainSuffix);
+  const rawSubdomain =
+    host.endsWith(subdomainSuffix) && host !== ROOT_APP_HOST && host !== API_HOST
+      ? host.slice(0, -subdomainSuffix.length)
+      : null;
+  const isSingleLabelSubdomain = !!rawSubdomain && !rawSubdomain.includes(".");
+  const businessSlug =
+    isSingleLabelSubdomain && !RESERVED_BUSINESS_SUBDOMAINS.has(rawSubdomain)
+      ? rawSubdomain
+      : null;
+
+  return {
+    host,
+    isRootAppHost,
+    isApiHost,
+    isVopenworldHost,
+    isBusinessHost: !!businessSlug,
+    businessSlug,
+  };
+};
+
+const domainContext = getVopenworldDomainContext();
+(window as any).__vopenworldDomain = domainContext;
 
 /** Escape HTML special chars to prevent XSS when building DOM strings. */
 const escapeHtml = (str: string) =>
@@ -99,6 +151,7 @@ const localAppUrls: Record<string, string> = {
   "@org/mfe-mgn-kahoot-mini-react": "http://localhost:19114/org-mfe-mgn-kahoot-mini-react.js",
   "@org/vr-res-react": "http://localhost:9014/org-vr-res-react.js",
   "@org/mfe-hero-discovery": "http://localhost:9017/org-mfe-hero-discovery.js",
+  "@org/mfe-business-page": "http://localhost:9020/org-mfe-business-page.js",
   "@org/dashboard-vue": "http://localhost:9004/dashboard-vue.js",
   "@org/mfe-budget-plans": "http://localhost:9016/org-mfe-budget-plans.js",
   "@org/auth-angular": "http://localhost:9010/main.js",
@@ -904,6 +957,7 @@ const microfrontendLayout = applyLayoutSection(
     ["ROUTE_MGN_KAHOOT_MINI", mgnKahootMiniRoute],
     ["ROUTE_DESTINATIONS", destinationsRoute],
     ["ROUTE_EXPERIENCES", experiencesRoute],
+    ["ROUTE_BUSINESS", businessRoute],
     ["ROUTE_DEFAULT", defaultRoute],
   ].reduce(
     (acc, [marker, content]) => applyLayoutSection(acc, marker, content),
@@ -913,13 +967,25 @@ const microfrontendLayout = applyLayoutSection(
   layoutHeader
 );
 
+const businessHostLayout = `
+<single-spa-router>
+  <main data-business-host="${escapeHtml(domainContext.businessSlug || "")}">
+    <route default>
+      <section class="mfe-app-card mfe-business-app-card" data-app="@org/mfe-business-page">
+        <application name="@org/mfe-business-page"></application>
+      </section>
+    </route>
+  </main>
+</single-spa-router>
+`;
+
 // Prevent Safari from auto-scrolling on history.pushState calls (scrollRestoration
 // defaults to 'auto' in WebKit, causing uncontrolled scroll jumps on SPA navigation).
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
 }
 
-const routes = constructRoutes(microfrontendLayout);
+const routes = constructRoutes(domainContext.isBusinessHost ? businessHostLayout : microfrontendLayout);
 const systemFirstApps = new Set<string>([
   "@org/header-react",
   "@org/footer-react",
@@ -927,6 +993,7 @@ const systemFirstApps = new Set<string>([
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
   "@org/mfe-hero-discovery",
+  "@org/mfe-business-page",
   "@org/mfe-budget-plans",
   "@org/playground-react",
   "@org/checkout-angular",
@@ -946,6 +1013,7 @@ const forceSystemJsApps = new Set<string>([
   "@org/mfe-mgn-kahoot-mini-react",
   "@org/vr-res-react",
   "@org/mfe-hero-discovery",
+  "@org/mfe-business-page",
 ]);
 const systemFirstUmdGlobals: Record<string, string> = {
   "@org/playground-vue": "playgroundVue",

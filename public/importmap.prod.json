@@ -5,6 +5,7 @@
     "@org/footer-react": "https://cdn.vopenworld.com/footer/org-footer-react.js",
     "@org/dashboard-vue": "https://cdn.yourdomain.com/dashboard-vue.js",
     "@org/mfe-budget-plans": "https://cdn.vopenworld.com/budget/org-mfe-budget-plans.js",
+    "@org/mfe-business-page": "https://cdn.vopenworld.com/business-page/org-mfe-business-page.js",
     "@org/mfe-hero-discovery": "https://cdn.vopenworld.com/hero-discovery/org-mfe-hero-discovery.js",
     "@org/mfe-kahoot-mini-react": "https://mfe-kahoot-mini-react.vercel.app/org-mfe-kahoot-mini-react.js",
     "@org/mfe-mgn-kahoot-mini-react": "https://mfe-mgn-kahoot-mini-react.vercel.app/org-mfe-mgn-kahoot-mini-react.js",

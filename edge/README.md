@@ -41,3 +41,24 @@ Human/browser requests pass straight through, so the SPA is untouched.
    `public/sitemap.xml`).
 5. Validate with the Facebook Sharing Debugger, X Card Validator, LinkedIn Post
    Inspector, and `curl -A "facebookexternalhit/1.1" https://app.vopenworld.com/experiences/<slug>`.
+
+## Business subdomain routing
+
+Business public pages use wildcard hosts:
+
+```txt
+*.vopenworld.com -> root-config frontend origin
+```
+
+Keep exact records separate:
+
+```txt
+app.vopenworld.com -> root-config frontend origin
+api.vopenworld.com -> backend/API origin
+```
+
+The root-config runtime treats single-label, non-reserved wildcard hosts as
+business pages. For example, `acme.vopenworld.com` mounts the business-page MFE
+with `window.__vopenworldDomain.businessSlug = "acme"`. Reserved subdomains
+such as `app`, `api`, `www`, `qr`, `admin`, `assets`, `cdn`, and `status` must
+be rejected by backend slug validation too.
