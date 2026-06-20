@@ -46,6 +46,31 @@ const CDN_HOST = "cdn.vopenworld.com";
 const CDN_ORIGIN = "https://vopenworld-mfe.sgp1.digitaloceanspaces.com";
 const CDN_ORIGIN_HOST = "vopenworld-mfe.sgp1.digitaloceanspaces.com";
 
+/**
+ * CORS allowlist for CDN assets: only the app shell and *.vopenworld.com
+ * business subdomains are legitimate cross-origin consumers of the MFE bundles.
+ * Returns true for https origins on the vopenworld.com apex or any subdomain.
+ * @param {string | null} origin
+ */
+const isAllowedCdnOrigin = (origin) => {
+  if (!origin) return false;
+  try {
+    const { protocol, hostname } = new URL(origin);
+    if (protocol !== "https:") return false;
+    return hostname === "vopenworld.com" || hostname.endsWith(".vopenworld.com");
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Common reconnaissance / sensitive paths probed by automated scanners.
+ * Matched (case-insensitive) against the URL pathname. Does NOT match the
+ * legitimate /.well-known/ tree. Any hit returns an indistinguishable 404.
+ */
+const RECON_PATH =
+  /(?:^|\/)(?:\.(?:env|git|svn|hg|aws|ssh|htaccess|htpasswd|ds_store|vscode|idea|bash_history|npmrc)\b|wp-admin|wp-login\.php|wp-content|wp-includes|xmlrpc\.php|phpmyadmin|phpinfo\.php)|\.(?:sql|bak|old|swp)(?:$|\?)/i;
+
 export default {
   /**
    * @param {Request} request
@@ -53,6 +78,12 @@ export default {
    */
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Block common reconnaissance / scanner probes with an indistinguishable 404
+    // so the infrastructure (stack, secrets, VCS metadata) is never disclosed.
+    if (RECON_PATH.test(url.pathname)) {
+      return new Response("Not Found", { status: 404 });
+    }
 
     // Safety guard: never proxy the API host (it is excluded by a no-Worker route,
     // but if that route is ever missing we must not hijack backend traffic).
@@ -74,9 +105,30 @@ export default {
         redirect: "manual",
         body: method === "GET" || method === "HEAD" ? undefined : request.body,
       });
-      // Allow cross-origin module loads from the app shell and business subdomains.
+      // Allow cross-origin module loads only from the app shell and *.vopenworld.com
+      // business subdomains. Reflect an allowlisted Origin instead of using "*".
       const outHeaders = new Headers(cdnResp.headers);
-      outHeaders.set("Access-Control-Allow-Origin", "*");
+      // Strip origin fingerprinting headers so the S3/Spaces backend is not
+      // disclosed to scanners (reduces reconnaissance surface).
+      for (const name of [...outHeaders.keys()]) {
+        if (name.toLowerCase().startsWith("x-amz-")) outHeaders.delete(name);
+      }
+      const reqOrigin = request.headers.get("Origin");
+      if (isAllowedCdnOrigin(reqOrigin)) {
+        outHeaders.set("Access-Control-Allow-Origin", reqOrigin);
+      } else {
+        outHeaders.delete("Access-Control-Allow-Origin");
+      }
+      // Cache must vary per Origin so the edge never serves one origin's ACAO to
+      // another. Rebuild Vary as a deduplicated, comma-separated token list.
+      const varyTokens = new Set(
+        (outHeaders.get("Vary") || "")
+          .split(",")
+          .map((token) => token.trim())
+          .filter(Boolean),
+      );
+      varyTokens.add("Origin");
+      outHeaders.set("Vary", [...varyTokens].join(", "));
       return new Response(cdnResp.body, {
         status: cdnResp.status,
         statusText: cdnResp.statusText,
