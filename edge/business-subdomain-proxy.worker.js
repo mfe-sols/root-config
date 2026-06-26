@@ -42,6 +42,7 @@
 
 const APP_HOST = "app.vopenworld.com";
 const API_HOST = "api.vopenworld.com";
+const TRAEFIK_HOST = "traefik.vopenworld.com";
 const CDN_HOST = "cdn.vopenworld.com";
 const CDN_ORIGIN = "https://vopenworld-mfe.sgp1.digitaloceanspaces.com";
 const CDN_ORIGIN_HOST = "vopenworld-mfe.sgp1.digitaloceanspaces.com";
@@ -89,6 +90,10 @@ export default {
     // but if that route is ever missing we must not hijack backend traffic).
     if (url.hostname === API_HOST) {
       return new Response("api host is not served by this worker", { status: 404 });
+    }
+
+    if (url.hostname === TRAEFIK_HOST) {
+      return new Response("traefik host is not served by this worker", { status: 404 });
     }
 
     // CDN host: serve static MFE bundles straight from DigitalOcean Spaces so they
