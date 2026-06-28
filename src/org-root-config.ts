@@ -126,6 +126,10 @@ const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname
 const REMOTE_APP_LOAD_TIMEOUT_MS = 8000;
 const LOCAL_APP_LOAD_TIMEOUT_MS = 30000;
 const REMOTE_APP_CIRCUIT_TTL_MS = 120000;
+// Open the circuit only after repeated failures within the TTL window. A single
+// transient CDN/network blip records a failure but does NOT skip loading on the
+// next attempt, so a one-off hiccup never blanks an app for minutes.
+const CIRCUIT_OPEN_THRESHOLD = 2;
 const APP_FAILURE_CACHE_KEY = "mfe-app-load-failures";
 const appLoadTimeoutMs = () => (isLocalhost ? LOCAL_APP_LOAD_TIMEOUT_MS : REMOTE_APP_LOAD_TIMEOUT_MS);
 
@@ -173,6 +177,16 @@ const AUTH_REQUIRED_PREFIXES = [
   "/playground-svelte",
 ];
 const ALWAYS_ON_APPS = new Set<string>();
+
+/**
+ * Critical shell apps that frame every page. They must never be disabled by the
+ * load circuit-breaker or gated by the preflight HEAD probe — a single transient
+ * CDN/network blip must not blank the header/footer for minutes. Instead they
+ * get a longer load budget and a one-shot retry, and a failure on one page load
+ * is retried fresh on the next navigation/reload (no sticky circuit).
+ */
+const CRITICAL_SHELL_APPS = new Set<string>(["@org/header-react", "@org/footer-react"]);
+const CRITICAL_APP_LOAD_TIMEOUT_MS = 20000;
 
 type DisabledMode = "hide" | "placeholder";
 type DisabledModeConfig =
@@ -344,7 +358,7 @@ const writeAppFailures = (failures: Record<string, AppFailureRecord>) => {
 };
 
 const getOpenCircuit = (name: string): AppFailureRecord | null => {
-  if (isLocalhost) return null;
+  if (isLocalhost || CRITICAL_SHELL_APPS.has(name)) return null;
   const failures = readAppFailures();
   const record = failures[name];
   if (!record) return null;
@@ -353,11 +367,17 @@ const getOpenCircuit = (name: string): AppFailureRecord | null => {
     writeAppFailures(failures);
     return null;
   }
+  // Tolerate a single transient failure: only treat the circuit as open once an
+  // app has failed repeatedly within the TTL window.
+  if (record.count < CIRCUIT_OPEN_THRESHOLD) return null;
   return record;
 };
 
 const recordAppFailure = (name: string, error: unknown, url?: string) => {
-  if (isLocalhost) {
+  // Critical shell apps are never circuit-broken: emit the error for telemetry /
+  // the shell loader, but never persist a sticky failure that would skip loading
+  // the header/footer on subsequent page loads.
+  if (isLocalhost || CRITICAL_SHELL_APPS.has(name)) {
     emitMfeError(name, error, url);
     return;
   }
@@ -695,7 +715,11 @@ const systemImportByUrl = (url: string) =>
     : importByUrl(url);
 
 const preflightRemoteBundle = (name: string, url: string | null) => {
-  if (isLocalhost || !url) return Promise.resolve();
+  // Skip the HEAD availability probe for critical shell apps: it adds an extra
+  // round-trip and an unreliable gate (no-cors HEAD can stall/fail transiently on
+  // the CDN edge) in front of the header/footer. Let System.import load directly
+  // and surface a real error instead of a spurious "unavailable".
+  if (isLocalhost || !url || CRITICAL_SHELL_APPS.has(name)) return Promise.resolve();
   return isUrlAvailable(url, 2500).then((ok) => {
     if (!ok) {
       throw new Error(`[root-config] Remote bundle is unavailable: ${name} (${url})`);
@@ -1026,6 +1050,23 @@ const finalizeLoadMetrics = (name: string) => {
   }
 };
 
+/** Critical shell apps get a longer load budget; others keep the fast fail-fast timeout. */
+const criticalAwareTimeout = (name: string) =>
+  CRITICAL_SHELL_APPS.has(name) ? CRITICAL_APP_LOAD_TIMEOUT_MS : appLoadTimeoutMs();
+
+/**
+ * Critical shell apps get one extra load attempt before falling back, so a single
+ * transient network error on the current page still recovers without a manual
+ * reload. Non-critical apps keep fail-fast semantics.
+ */
+const importWithResilience = (name: string, doImport: () => Promise<any>): Promise<any> => {
+  if (!CRITICAL_SHELL_APPS.has(name)) return doImport();
+  return doImport().catch((error) => {
+    console.warn(`[root-config] Critical app ${name} failed to load; retrying once`, error);
+    return new Promise((resolve) => window.setTimeout(resolve, 500)).then(() => doImport());
+  });
+};
+
 const allApplications = constructApplications({
   routes,
   loadApp({ name }) {
@@ -1102,9 +1143,11 @@ const allApplications = constructApplications({
             });
           })()
         : preflightRemoteBundle(name, remoteUrl).then(() =>
-            window.System?.import
-              ? withLoadTimeout(window.System.import(name) as Promise<any>, name)
-              : withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name)
+            importWithResilience(name, () =>
+              window.System?.import
+                ? withLoadTimeout(window.System.import(name) as Promise<any>, name, criticalAwareTimeout(name))
+                : withLoadTimeout(import(/* webpackIgnore: true */ name) as Promise<any>, name, criticalAwareTimeout(name))
+            )
           );
 
       return preferredImport
