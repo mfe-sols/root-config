@@ -72,6 +72,108 @@ const isAllowedCdnOrigin = (origin) => {
 const RECON_PATH =
   /(?:^|\/)(?:\.(?:env|git|svn|hg|aws|ssh|htaccess|htpasswd|ds_store|vscode|idea|bash_history|npmrc)\b|wp-admin|wp-login\.php|wp-content|wp-includes|xmlrpc\.php|phpmyadmin|phpinfo\.php)|\.(?:sql|bak|old|swp)(?:$|\?)/i;
 
+/* ── Image resize allow-list (bounded Cloudflare Image Resizing via Worker) ───
+   Requests to  cdn.vopenworld.com/i/<W>x<H>x<Q>/<srcKey>  are resized with the
+   first-party engine, but W/H/Q are SNAPPED to a fixed ladder server-side, so
+   the number of DISTINCT (billable, cached) transformations stays bounded no
+   matter what a client — or an attacker — asks for. Arbitrary or oversized
+   values collapse onto an existing ladder step instead of minting a new unique
+   transformation. The source must be an on-zone object (served from Spaces via
+   this same Worker), matching the zone's "This zone only" setting.
+
+   This is the ONLY resize path the frontend references; the raw /cdn-cgi/image/
+   endpoint is never advertised. It also gives us a stable image-URL contract we
+   can later back with pre-generated upload variants without any frontend change. */
+const SIZE_LADDER = [96, 160, 240, 320, 480, 640, 800, 1080, 1440, 1600, 2048, 2560, 4096];
+const MAX_IMAGE_SIZE = 4096;
+const QUALITY_STEPS = [60, 70, 78, 82, 85];
+
+/** Snap a pixel size UP to the nearest ladder step (0 = auto/omit). */
+const snapSize = (value) => {
+  const target = Math.max(0, Math.round(Number(value) || 0));
+  if (target === 0) return 0;
+  for (const step of SIZE_LADDER) if (step >= target) return step;
+  return MAX_IMAGE_SIZE;
+};
+/** Snap quality to the nearest canonical step. */
+const snapQuality = (value) => {
+  const target = Math.max(1, Math.min(100, Math.round(Number(value) || 0)));
+  return QUALITY_STEPS.reduce((best, s) => (Math.abs(s - target) < Math.abs(best - target) ? s : best));
+};
+
+/**
+ * Serve a bounded, resized image for /i/<W>x<H>x<Q>/<srcKey> on the CDN host.
+ * @param {URL} url
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
+async function handleImageResize(url, request) {
+  const method = request.method.toUpperCase();
+  if (method !== "GET" && method !== "HEAD") {
+    return new Response("method not allowed", { status: 405 });
+  }
+  // "/i/<opts>/<host>/<path…>" → split off the first segment as the options.
+  const rest = url.pathname.slice(3); // strip "/i/"
+  const slash = rest.indexOf("/");
+  if (slash <= 0) return new Response("bad image request", { status: 400 });
+  const optsPart = rest.slice(0, slash);
+  const srcSpec = rest.slice(slash + 1).replace(/^\/+/, "");
+  if (!srcSpec || srcSpec.includes("/cdn-cgi/") || srcSpec.includes("..")) {
+    return new Response("bad image source", { status: 400 });
+  }
+  // Split "<host>/<path>" and hard allow-list the host to our own zone. This is
+  // the SSRF guard: the Worker will only ever fetch same-zone objects, never an
+  // attacker-supplied external host.
+  const hostSlash = srcSpec.indexOf("/");
+  if (hostSlash <= 0) return new Response("bad image source", { status: 400 });
+  const srcHost = srcSpec.slice(0, hostSlash).toLowerCase();
+  const srcPath = srcSpec.slice(hostSlash + 1);
+  const sameZone = srcHost === "vopenworld.com" || srcHost.endsWith(".vopenworld.com");
+  if (!sameZone || !srcPath) return new Response("bad image source", { status: 400 });
+  // Never let the source loop back into this resize route.
+  if (srcHost === CDN_HOST && srcPath.startsWith("i/")) {
+    return new Response("bad image source", { status: 400 });
+  }
+  const m = /^(\d{1,5})x(\d{1,5})x(\d{1,3})$/.exec(optsPart);
+  if (!m) return new Response("bad image options", { status: 400 });
+  const width = snapSize(m[1]);
+  const height = snapSize(m[2]);
+  const quality = snapQuality(m[3]);
+  const image = { quality, fit: "cover", format: "auto" };
+  if (width) image.width = width;
+  if (height) image.height = height;
+
+  // On-zone source → satisfies the "This zone only" Transformations setting.
+  const sourceURL = `https://${srcHost}/${srcPath}`;
+  const accept = request.headers.get("Accept") || "image/avif,image/webp,image/*,*/*";
+  const passthrough = () => fetch(sourceURL, { headers: { Accept: accept } });
+  try {
+    const resized = await fetch(sourceURL, {
+      headers: { Accept: accept },
+      cf: { image, cacheEverything: true, cacheTtl: 86400 },
+    });
+    // On any resize failure serve the original so an <img> never blanks.
+    if (!resized.ok) return passthrough();
+    const headers = new Headers(resized.headers);
+    for (const name of [...headers.keys()]) {
+      if (name.toLowerCase().startsWith("x-amz-")) headers.delete(name);
+    }
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    const reqOrigin = request.headers.get("Origin");
+    if (isAllowedCdnOrigin(reqOrigin)) {
+      headers.set("Access-Control-Allow-Origin", reqOrigin);
+      const varyTokens = new Set(
+        (headers.get("Vary") || "").split(",").map((t) => t.trim()).filter(Boolean),
+      );
+      varyTokens.add("Origin");
+      headers.set("Vary", [...varyTokens].join(", "));
+    }
+    return new Response(resized.body, { status: resized.status, statusText: resized.statusText, headers });
+  } catch {
+    return passthrough();
+  }
+}
+
 export default {
   /**
    * @param {Request} request
@@ -100,6 +202,12 @@ export default {
     // keep their real content-type. Proxying these to Vercel would return the SPA
     // index.html for every path and break single-spa module loading.
     if (url.hostname === CDN_HOST) {
+      // Bounded on-the-fly image resizing (allow-list ladder). This is the only
+      // resize path the frontend uses; arbitrary dimensions are snapped so the
+      // unique-transformation count (cost) can never be inflated.
+      if (url.pathname.startsWith("/i/")) {
+        return handleImageResize(url, request);
+      }
       const cdnTarget = CDN_ORIGIN + url.pathname + url.search;
       const cdnHeaders = new Headers(request.headers);
       cdnHeaders.set("Host", CDN_ORIGIN_HOST);
